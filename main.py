@@ -17,41 +17,6 @@ from agents import (
     create_ticket_agent,
 )
 
-# ---------------------------------------------------------------------------
-# Monkey-patch: extend checkpoint allowed types at the CLASS level so that
-# ALL instances of FileCheckpointStorage automatically permit the types
-# needed by HandoffBuilder workflows. The hosting package's allowlist is too
-# narrow for orchestration checkpoints.
-# ---------------------------------------------------------------------------
-from agent_framework._workflows._checkpoint import FileCheckpointStorage
-from agent_framework._workflows import _checkpoint_encoding
-
-_EXTRA_ALLOWED_TYPES = frozenset([
-    "agent_framework_orchestrations._handoff:HandoffAgentUserRequest",
-    "types:GenericAlias",
-])
-
-# Patch the RestrictedUnpickler to also allow agent_framework_orchestrations.*
-# and common stdlib types needed for checkpoint serialization.
-_original_find_class = _checkpoint_encoding._RestrictedUnpickler.find_class
-
-
-def _patched_find_class(self, module: str, name: str):
-    type_key = f"{module}:{name}"
-    # Allow orchestrations package and common Python types used in generics
-    if (
-        module.startswith("agent_framework_orchestrations")
-        or type_key in _EXTRA_ALLOWED_TYPES
-    ):
-        import importlib
-        mod = importlib.import_module(module)
-        return getattr(mod, name)
-    return _original_find_class(self, module, name)
-
-
-_checkpoint_encoding._RestrictedUnpickler.find_class = _patched_find_class
-# ---------------------------------------------------------------------------
-
 
 async def main() -> None:
     load_dotenv()
@@ -114,4 +79,5 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
