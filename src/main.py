@@ -56,9 +56,8 @@ async def main() -> None:
         HandoffBuilder(
             name="specialist_mesh",
             participants=[coordinator, billing_agent, iam_agent, ticket_agent, knowledge_agent],
-            termination_condition=(
-                "End the workflow after the user's request is fulfilled and control has returned "
-                "to the coordinator."
+            termination_condition=lambda conv: (
+                sum(1 for msg in conv if msg.author_name == "coordinator" and msg.role == "assistant") >= 10
             ),
         )
         .with_start_agent(coordinator)
