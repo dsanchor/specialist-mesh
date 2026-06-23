@@ -5,7 +5,7 @@ import os
 
 from agent_framework import Agent
 from agent_framework.foundry import FoundryChatClient
-from agent_framework.orchestrations import GroupChatBuilder
+from agent_framework.orchestrations import MagenticBuilder
 from agent_framework_foundry_hosting import ResponsesHostServer
 from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
@@ -17,32 +17,22 @@ from agents import (
     create_ticket_agent,
 )
 
-COORDINATOR_INSTRUCTIONS = """
-You are the orchestrator for a multi-agent system. Your ONLY job is to select which agent speaks next.
+MANAGER_INSTRUCTIONS = """
+You coordinate a team of specialist agents to resolve user requests efficiently.
 
-Available agents to select:
+Available specialists:
 - billing_specialist: invoicing, payments, account balance, billing history, refunds
 - iam_specialist: password reset/change, user accounts, roles, permissions
 - ticket_specialist: create/manage GitHub issues as support tickets
 - knowledge_specialist: product documentation, knowledge base queries
-- coordinator: delivers the final synthesized answer to the user
 
-DECISION PROCESS (follow strictly):
-
-Step 1: Read the user's original request. List ALL topics/domains it covers.
-Step 2: Check which specialists have ALREADY responded in the conversation.
-Step 3: If there is a domain that has NOT been addressed yet, select that specialist.
-Step 4: ONLY select "coordinator" when ALL domains in the request have been addressed.
-
-EXAMPLES:
-- User asks about "roles and invoices for user_jdoe"
-  → Domains: IAM + Billing → select iam_specialist first, then billing_specialist, then coordinator
-- User asks about "reset password for user_asmith"
-  → Domains: IAM only → select iam_specialist, then coordinator
-- User says "hello"
-  → No specialist needed → select coordinator immediately
-
-CRITICAL: Do NOT select "coordinator" if any part of the user's request remains unanswered.
+Guidelines:
+- Analyze the user's request and identify ALL domains involved.
+- Delegate to each required specialist. If the request spans multiple domains,
+  call each specialist sequentially until all parts are covered.
+- Once all specialists have provided their data, synthesize a final comprehensive
+  answer incorporating all results.
+- If the request is a greeting or general question, respond directly.
 """
 
 
@@ -61,39 +51,20 @@ async def main() -> None:
     ticket_agent = create_ticket_agent(client)
     knowledge_agent = create_knowledge_agent(client, credential)
 
-    coordinator = Agent(
-        name="coordinator",
-        description="Synthesizes specialist results into a final user-facing answer",
-        instructions=(
-            "When selected as speaker, provide the final answer to the user. "
-            "Use the information from the specialist's previous response to give a clear, "
-            "complete, and helpful reply. Include specific data (numbers, IDs, statuses) "
-            "from the specialist's output. If the request was a greeting or general question, "
-            "respond directly listing available services."
-        ),
+    manager = Agent(
+        name="manager",
+        description="Orchestrator that coordinates specialist agents and synthesizes final answers",
+        instructions=MANAGER_INSTRUCTIONS,
         client=client,
     )
 
-    # Orchestrator: selects next speaker (uses COORDINATOR_INSTRUCTIONS)
-    orchestrator = Agent(
-        name="orchestrator",
-        description="Selects which specialist or coordinator speaks next",
-        instructions=COORDINATOR_INSTRUCTIONS,
-        client=client,
-    )
-
-    workflow = (
-        GroupChatBuilder(
-            participants=[billing_agent, iam_agent, ticket_agent, knowledge_agent, coordinator],
-            termination_condition=lambda msgs: (
-                len(msgs) > 0
-                and msgs[-1].author_name == "coordinator"
-                and msgs[-1].role == "assistant"
-            ),
-            orchestrator_agent=orchestrator,
-        )
-        .build()
-    )
+    workflow = MagenticBuilder(
+        participants=[billing_agent, iam_agent, ticket_agent, knowledge_agent],
+        manager_agent=manager,
+        max_round_count=10,
+        max_stall_count=3,
+        max_reset_count=2,
+    ).build()
 
     workflow_agent = workflow.as_agent()
     server = ResponsesHostServer(workflow_agent)
@@ -102,6 +73,7 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
 
