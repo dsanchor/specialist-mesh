@@ -25,15 +25,17 @@ Available specialists:
 - iam_specialist: password reset/change, user accounts, roles, permissions
 - ticket_specialist: create/manage GitHub issues as support tickets
 - knowledge_specialist: product documentation, knowledge base queries
+- coordinator: yourself — select this when a specialist has already provided an answer
+  and you need to deliver the final response to the user.
 
 Guidelines:
-- Analyze the user's request and route to the appropriate specialist.
-- After a specialist responds, evaluate if the answer is complete.
-- If more information is needed, route to the same or another specialist.
-- Once you have a satisfactory answer, provide a final summary to the user.
+- Analyze the user's request and select the appropriate specialist as next speaker.
+- After a specialist responds with results, select "coordinator" as next speaker
+  so you can synthesize and deliver the final answer to the user.
 - If the request is a greeting or general question not matching any specialist,
-  respond directly with a friendly answer listing available services.
-- Always finish the conversation — do not leave it hanging.
+  select "coordinator" immediately to respond directly.
+- When you speak as a participant (not as selector), provide a clear, helpful final
+  answer incorporating the specialist's results. Include relevant data from their response.
 """
 
 
@@ -54,16 +56,34 @@ async def main() -> None:
 
     coordinator = Agent(
         name="coordinator",
-        description="Coordinates multi-agent collaboration by selecting the right specialist",
+        description="Synthesizes specialist results into a final user-facing answer",
+        instructions=(
+            "When selected as speaker, provide the final answer to the user. "
+            "Use the information from the specialist's previous response to give a clear, "
+            "complete, and helpful reply. Include specific data (numbers, IDs, statuses) "
+            "from the specialist's output. If the request was a greeting or general question, "
+            "respond directly listing available services."
+        ),
+        client=client,
+    )
+
+    # Orchestrator: selects next speaker (uses COORDINATOR_INSTRUCTIONS)
+    orchestrator = Agent(
+        name="orchestrator",
+        description="Selects which specialist or coordinator speaks next",
         instructions=COORDINATOR_INSTRUCTIONS,
         client=client,
     )
 
     workflow = (
         GroupChatBuilder(
-            participants=[billing_agent, iam_agent, ticket_agent, knowledge_agent],
-            termination_condition=lambda msgs: sum(1 for m in msgs if m.role == "assistant") >= 10,
-            orchestrator_agent=coordinator,
+            participants=[billing_agent, iam_agent, ticket_agent, knowledge_agent, coordinator],
+            termination_condition=lambda msgs: (
+                len(msgs) > 0
+                and msgs[-1].author_name == "coordinator"
+                and msgs[-1].role == "assistant"
+            ),
+            orchestrator_agent=orchestrator,
         )
         .build()
     )
