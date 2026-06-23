@@ -24,10 +24,9 @@ def create_ticket_agent(client: Any) -> Agent:
             "using only the GitHub issues MCP tool.\n\n"
             "IMPORTANT: Always use the repository 'dsanchor/specialist-mesh' (owner: dsanchor, repo: specialist-mesh) "
             "when creating, listing, or updating issues.\n\n"
-            "CONTEXT USAGE: You have access to the full conversation history. When creating a ticket, "
-            "use relevant information from previous turns (e.g., error details, user IDs, invoice numbers, "
-            "permissions issues) to enrich the ticket title and body. Include specific data points from "
-            "the conversation that are relevant to the ticket.\n\n"
+            "When creating a ticket, use ONLY the information the user explicitly requests to include. "
+            "Do NOT dump the entire conversation history into the ticket. If the user says "
+            "'create a ticket about X', the ticket should be about X and nothing else.\n\n"
             "Create, list, update, and manage issues. Be concise and direct in your response."
         ),
         tools=tools,
