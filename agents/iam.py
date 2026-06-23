@@ -31,6 +31,30 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
 }
 
 
+def _seed_iam_data() -> None:
+    """Pre-load sample user and role data."""
+    sample_users = [
+        UserRecord(user_id="user_jdoe", email="john.doe@acme.com", display_name="John Doe", password="Acm3S3cur3!"),
+        UserRecord(user_id="user_asmith", email="alice.smith@acme.com", display_name="Alice Smith", password="Al1c3Pass!"),
+        UserRecord(user_id="user_bwayne", email="bruce@wayne-ent.com", display_name="Bruce Wayne", password="B4tC4v3!"),
+        UserRecord(user_id="user_ckent", email="clark.kent@globex.com", display_name="Clark Kent", password="Krypt0n1te!"),
+        UserRecord(user_id="user_dprince", email="diana.prince@globex.com", display_name="Diana Prince", status="disabled", password="Th3m1sc1ra!"),
+    ]
+    for user in sample_users:
+        USERS[user.user_id] = user
+
+    USER_ROLES.update({
+        "user_jdoe": {"admin", "billing-admin"},
+        "user_asmith": {"support", "reader"},
+        "user_bwayne": {"admin"},
+        "user_ckent": {"reader", "support"},
+        "user_dprince": {"reader"},
+    })
+
+
+_seed_iam_data()
+
+
 def _lookup_user(user_id: str) -> UserRecord | None:
     return USERS.get(user_id)
 

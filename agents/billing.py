@@ -40,6 +40,79 @@ PAYMENT_METHODS: dict[str, dict[str, str]] = {}
 BILLING_HISTORY: dict[str, list[BillingEvent]] = {}
 
 
+def _seed_billing_data() -> None:
+    """Pre-load sample billing data."""
+    samples = [
+        InvoiceRecord(
+            invoice_id="inv_001",
+            customer_id="cust_acme",
+            amount=1500.00,
+            currency="USD",
+            due_date="2026-07-15",
+            description="Cloud hosting - June 2026",
+            status="open",
+        ),
+        InvoiceRecord(
+            invoice_id="inv_002",
+            customer_id="cust_acme",
+            amount=320.50,
+            currency="USD",
+            due_date="2026-06-30",
+            description="API usage overage - May 2026",
+            status="paid",
+        ),
+        InvoiceRecord(
+            invoice_id="inv_003",
+            customer_id="cust_globex",
+            amount=8750.00,
+            currency="EUR",
+            due_date="2026-07-01",
+            description="Enterprise license Q3 2026",
+            status="open",
+        ),
+        InvoiceRecord(
+            invoice_id="inv_004",
+            customer_id="cust_globex",
+            amount=450.00,
+            currency="EUR",
+            due_date="2026-05-15",
+            description="Support add-on - April 2026",
+            status="paid",
+        ),
+        InvoiceRecord(
+            invoice_id="inv_005",
+            customer_id="cust_wayne",
+            amount=12000.00,
+            currency="USD",
+            due_date="2026-08-01",
+            description="Annual platform subscription",
+            status="open",
+        ),
+    ]
+    for inv in samples:
+        INVOICES[inv.invoice_id] = inv
+        CUSTOMER_INVOICES.setdefault(inv.customer_id, []).append(inv.invoice_id)
+
+    ACCOUNT_BALANCES.update({
+        "cust_acme": 1500.00,
+        "cust_globex": 8750.00,
+        "cust_wayne": 12000.00,
+    })
+    BILLING_ADDRESSES.update({
+        "cust_acme": "742 Evergreen Terrace, Springfield, IL 62704",
+        "cust_globex": "100 Industrial Way, Shelbyville, IL 62565",
+        "cust_wayne": "1007 Mountain Drive, Gotham, NJ 07001",
+    })
+    PAYMENT_METHODS.update({
+        "cust_acme": {"payment_method_type": "card", "payment_method_token": "tok_visa_4242", "updated_at": "2026-01-10T09:00:00+00:00"},
+        "cust_globex": {"payment_method_type": "sepa", "payment_method_token": "tok_sepa_de89", "updated_at": "2026-02-20T14:30:00+00:00"},
+        "cust_wayne": {"payment_method_type": "card", "payment_method_token": "tok_amex_1234", "updated_at": "2026-03-05T11:00:00+00:00"},
+    })
+
+
+_seed_billing_data()
+
+
 def _append_history(customer_id: str, event_type: str, message: str, **metadata: Any) -> None:
     BILLING_HISTORY.setdefault(customer_id, []).append(
         BillingEvent(event_type=event_type, message=message, metadata=metadata)
