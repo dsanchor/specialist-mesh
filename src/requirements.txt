@@ -1,4 +1,6 @@
-agent-framework[azure,foundry-hosting]
+agent-framework[azure]
+agent-framework-foundry-hosting
+agent-framework-orchestrations
 azure-identity
 azure-monitor-opentelemetry
 python-dotenv
