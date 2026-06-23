@@ -9,3 +9,4 @@
 src/.env
 __pycache__/
 src/.checkpoints/
+src/.env.local
