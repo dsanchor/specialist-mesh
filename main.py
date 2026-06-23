@@ -41,7 +41,7 @@ Guidelines:
 
 
 class TracedAgentExecutor(AgentExecutor):
-    """AgentExecutor that wraps agent execution in a custom OTEL span."""
+    """AgentExecutor that wraps agent execution in a custom OTEL span and preserves context."""
 
     async def _run_agent_and_emit(self, ctx):
         with tracer.start_as_current_span(
@@ -53,7 +53,12 @@ class TracedAgentExecutor(AgentExecutor):
                 "gen_ai.agent.name": self.id,
             },
         ):
-            return await super()._run_agent_and_emit(ctx)
+            await super()._run_agent_and_emit(ctx)
+            # Restore cache from full_conversation so that conversation history
+            # survives checkpointing across turns in hosted mode.
+            # The base class clears _cache after emitting, which means on the
+            # next turn participants lose all prior context.
+            self._cache = list(self._full_conversation)
 
 
 async def main() -> None:
