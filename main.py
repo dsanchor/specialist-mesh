@@ -22,41 +22,20 @@ from agents import (
 tracer = get_tracer()
 
 ORCHESTRATOR_INSTRUCTIONS = """
-You are the orchestrator for a multi-agent system. Your ONLY job is to select which agent speaks next
-or to terminate the conversation once the coordinator has delivered the final answer.
+You coordinate a team of specialist agents to solve the user's request.
 
-Available agents to select:
+Available specialists:
 - billing_specialist: invoicing, payments, account balance, billing history, refunds
 - iam_specialist: password reset/change, user accounts, roles, permissions
 - ticket_specialist: create/manage GitHub issues as support tickets
 - knowledge_specialist: product documentation, knowledge base queries
-- coordinator: delivers the final answer to the user
 
-DECISION PROCESS:
-1. If this is the first selection (no specialist or coordinator has spoken yet):
-   - Identify which ONE specialist best matches the user's request and select it.
-   - If the request is a greeting or general question, select "coordinator" directly.
-2. If a specialist has just responded, select "coordinator" to deliver the answer.
-3. If the coordinator has just spoken, TERMINATE the conversation.
-   Set "terminate": true and leave "final_message" as null.
-
-IMPORTANT: Always terminate after the coordinator speaks. Never select another agent after coordinator.
-"""
-
-COORDINATOR_INSTRUCTIONS = """
-When selected as speaker, provide the final answer to the user.
-Use the information from the specialist's previous response to give a clear,
-complete, and helpful reply. Include specific data (numbers, IDs, statuses)
-from the specialist's output.
-
-If the request is a greeting or general question, respond by listing the specific services
-you can help with:
-- **Billing**: invoicing, payments, account balance, billing history, refunds, payment methods
-- **Identity & Access (IAM)**: password reset/change, user management, roles, permissions
-- **Tickets**: create and manage GitHub issues as support or work tickets
-- **Knowledge Base**: product documentation and knowledge base queries
-
-Always respond in the same language the user used.
+Guidelines:
+- Route the user's request to the ONE most appropriate specialist.
+- If the request is a greeting or general question, respond directly with available services:
+  Billing, Identity & Access (IAM), Tickets, and Knowledge Base.
+- Once the specialist has responded, synthesize a final user-facing answer using their data.
+- Always respond in the same language the user used.
 """
 
 
@@ -91,36 +70,28 @@ async def main() -> None:
     ticket_agent = create_ticket_agent(client)
     knowledge_agent = create_knowledge_agent(client, credential)
 
-    coordinator = Agent(
-        name="coordinator",
-        description="Synthesizes specialist results into a final user-facing answer",
-        instructions=COORDINATOR_INSTRUCTIONS,
-        client=client,
-    )
-
-    orchestrator = Agent(
+    orchestrator_agent = Agent(
         name="orchestrator",
-        description="Selects which specialist or coordinator speaks next",
+        description="Coordinates specialist agents to solve user requests",
         instructions=ORCHESTRATOR_INSTRUCTIONS,
         client=client,
     )
 
-    # Wrap each agent in TracedAgentExecutor for custom OTEL spans
-    # context_mode="full" ensures specialists receive the entire conversation history
     participants = [
         TracedAgentExecutor(billing_agent, id=billing_agent.name, context_mode="full"),
         TracedAgentExecutor(iam_agent, id=iam_agent.name, context_mode="full"),
         TracedAgentExecutor(ticket_agent, id=ticket_agent.name, context_mode="full"),
         TracedAgentExecutor(knowledge_agent, id=knowledge_agent.name, context_mode="full"),
-        TracedAgentExecutor(coordinator, id=coordinator.name, context_mode="full"),
     ]
 
     workflow = (
         GroupChatBuilder(
             participants=participants,
-            orchestrator_agent=orchestrator,
-            output_from=["coordinator"],
-            max_rounds=10,
+            orchestrator_agent=orchestrator_agent,
+            intermediate_output_from=participants,
+        )
+        .with_termination_condition(
+            lambda msgs: sum(1 for m in msgs if m.role == "assistant") >= 4
         )
         .build()
     )
