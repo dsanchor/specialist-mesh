@@ -100,12 +100,23 @@ async def main() -> None:
         TracedAgentExecutor(coordinator, id=coordinator.name, context_mode="full"),
     ]
 
+    def termination_condition(msgs: list) -> bool:
+        """Terminate when coordinator speaks after the last user message."""
+        # Find the last user message index
+        last_user_idx = -1
+        for i, m in enumerate(msgs):
+            if m.role == "user":
+                last_user_idx = i
+        # Check if coordinator spoke after the last user message
+        for m in msgs[last_user_idx + 1:]:
+            if m.role == "assistant" and m.author_name == "coordinator":
+                return True
+        return False
+
     workflow = (
         GroupChatBuilder(
             participants=participants,
-            termination_condition=lambda msgs: (
-                sum(1 for m in msgs if m.role == "assistant" and m.author_name == "coordinator") >= 1
-            ),
+            termination_condition=termination_condition,
             orchestrator_agent=orchestrator,
         )
         .build()
