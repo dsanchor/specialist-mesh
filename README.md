@@ -89,7 +89,18 @@ cp .env.example .env
 
 ## Local Development
 
-Run the specialist mesh locally:
+### Create a virtual environment
+
+```bash
+# Set the base directory for virtual environments (add to your shell profile)
+export HOME_VENVS=~/venvs  # or any directory you prefer
+
+# Create and activate the venv
+python3 -m venv $HOME_VENVS/specialistmesh
+source $HOME_VENVS/specialistmesh/bin/activate
+```
+
+### Install and run
 
 ```bash
 cd src
