@@ -75,9 +75,7 @@ async def main() -> None:
         GroupChatBuilder(
             participants=[billing_agent, iam_agent, ticket_agent, knowledge_agent, coordinator],
             termination_condition=lambda msgs: (
-                len(msgs) > 0
-                and msgs[-1].author_name == "coordinator"
-                and msgs[-1].role == "assistant"
+                sum(1 for m in msgs if m.role == "assistant" and m.author_name == "coordinator") >= 1
             ),
             orchestrator_agent=orchestrator,
         )
