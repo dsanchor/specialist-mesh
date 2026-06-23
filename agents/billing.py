@@ -45,7 +45,7 @@ def _seed_billing_data() -> None:
     samples = [
         InvoiceRecord(
             invoice_id="inv_001",
-            customer_id="cust_acme",
+            customer_id="user_jdoe",
             amount=1500.00,
             currency="USD",
             due_date="2026-07-15",
@@ -54,7 +54,7 @@ def _seed_billing_data() -> None:
         ),
         InvoiceRecord(
             invoice_id="inv_002",
-            customer_id="cust_acme",
+            customer_id="user_jdoe",
             amount=320.50,
             currency="USD",
             due_date="2026-06-30",
@@ -63,7 +63,7 @@ def _seed_billing_data() -> None:
         ),
         InvoiceRecord(
             invoice_id="inv_003",
-            customer_id="cust_globex",
+            customer_id="user_ckent",
             amount=8750.00,
             currency="EUR",
             due_date="2026-07-01",
@@ -72,7 +72,7 @@ def _seed_billing_data() -> None:
         ),
         InvoiceRecord(
             invoice_id="inv_004",
-            customer_id="cust_globex",
+            customer_id="user_ckent",
             amount=450.00,
             currency="EUR",
             due_date="2026-05-15",
@@ -81,7 +81,7 @@ def _seed_billing_data() -> None:
         ),
         InvoiceRecord(
             invoice_id="inv_005",
-            customer_id="cust_wayne",
+            customer_id="user_bwayne",
             amount=12000.00,
             currency="USD",
             due_date="2026-08-01",
@@ -94,19 +94,19 @@ def _seed_billing_data() -> None:
         CUSTOMER_INVOICES.setdefault(inv.customer_id, []).append(inv.invoice_id)
 
     ACCOUNT_BALANCES.update({
-        "cust_acme": 1500.00,
-        "cust_globex": 8750.00,
-        "cust_wayne": 12000.00,
+        "user_jdoe": 1500.00,
+        "user_ckent": 8750.00,
+        "user_bwayne": 12000.00,
     })
     BILLING_ADDRESSES.update({
-        "cust_acme": "742 Evergreen Terrace, Springfield, IL 62704",
-        "cust_globex": "100 Industrial Way, Shelbyville, IL 62565",
-        "cust_wayne": "1007 Mountain Drive, Gotham, NJ 07001",
+        "user_jdoe": "742 Evergreen Terrace, Springfield, IL 62704",
+        "user_ckent": "344 Clinton Street, Metropolis, NY 10001",
+        "user_bwayne": "1007 Mountain Drive, Gotham, NJ 07001",
     })
     PAYMENT_METHODS.update({
-        "cust_acme": {"payment_method_type": "card", "payment_method_token": "tok_visa_4242", "updated_at": "2026-01-10T09:00:00+00:00"},
-        "cust_globex": {"payment_method_type": "sepa", "payment_method_token": "tok_sepa_de89", "updated_at": "2026-02-20T14:30:00+00:00"},
-        "cust_wayne": {"payment_method_type": "card", "payment_method_token": "tok_amex_1234", "updated_at": "2026-03-05T11:00:00+00:00"},
+        "user_jdoe": {"payment_method_type": "card", "payment_method_token": "tok_visa_4242", "updated_at": "2026-01-10T09:00:00+00:00"},
+        "user_ckent": {"payment_method_type": "sepa", "payment_method_token": "tok_sepa_de89", "updated_at": "2026-02-20T14:30:00+00:00"},
+        "user_bwayne": {"payment_method_type": "card", "payment_method_token": "tok_amex_1234", "updated_at": "2026-03-05T11:00:00+00:00"},
     })
 
 
