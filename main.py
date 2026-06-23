@@ -21,8 +21,9 @@ from agents import (
 
 tracer = get_tracer()
 
-COORDINATOR_INSTRUCTIONS = """
-You are the orchestrator for a multi-agent system. Your ONLY job is to select which agent speaks next.
+ORCHESTRATOR_INSTRUCTIONS = """
+You are the orchestrator for a multi-agent system. Your ONLY job is to select which agent speaks next
+or to terminate the conversation once the coordinator has delivered the final answer.
 
 Available agents to select:
 - billing_specialist: invoicing, payments, account balance, billing history, refunds
@@ -32,10 +33,30 @@ Available agents to select:
 - coordinator: delivers the final answer to the user
 
 DECISION PROCESS:
-1. Identify which ONE specialist best matches the user's request.
-2. Select that specialist.
-3. Once the specialist has responded, select "coordinator" to deliver the answer.
-4. If the request is a greeting or general question, select "coordinator" directly.
+1. If this is the first selection (no specialist or coordinator has spoken yet):
+   - Identify which ONE specialist best matches the user's request and select it.
+   - If the request is a greeting or general question, select "coordinator" directly.
+2. If a specialist has just responded, select "coordinator" to deliver the answer.
+3. If the coordinator has just spoken, TERMINATE the conversation.
+   Set "terminate": true and leave "final_message" as null.
+
+IMPORTANT: Always terminate after the coordinator speaks. Never select another agent after coordinator.
+"""
+
+COORDINATOR_INSTRUCTIONS = """
+When selected as speaker, provide the final answer to the user.
+Use the information from the specialist's previous response to give a clear,
+complete, and helpful reply. Include specific data (numbers, IDs, statuses)
+from the specialist's output.
+
+If the request is a greeting or general question, respond by listing the specific services
+you can help with:
+- **Billing**: invoicing, payments, account balance, billing history, refunds, payment methods
+- **Identity & Access (IAM)**: password reset/change, user management, roles, permissions
+- **Tickets**: create and manage GitHub issues as support or work tickets
+- **Knowledge Base**: product documentation and knowledge base queries
+
+Always respond in the same language the user used.
 """
 
 
@@ -73,20 +94,14 @@ async def main() -> None:
     coordinator = Agent(
         name="coordinator",
         description="Synthesizes specialist results into a final user-facing answer",
-        instructions=(
-            "When selected as speaker, provide the final answer to the user. "
-            "Use the information from the specialist's previous response to give a clear, "
-            "complete, and helpful reply. Include specific data (numbers, IDs, statuses) "
-            "from the specialist's output. If the request was a greeting or general question, "
-            "respond directly listing available services."
-        ),
+        instructions=COORDINATOR_INSTRUCTIONS,
         client=client,
     )
 
     orchestrator = Agent(
         name="orchestrator",
         description="Selects which specialist or coordinator speaks next",
-        instructions=COORDINATOR_INSTRUCTIONS,
+        instructions=ORCHESTRATOR_INSTRUCTIONS,
         client=client,
     )
 
@@ -100,25 +115,12 @@ async def main() -> None:
         TracedAgentExecutor(coordinator, id=coordinator.name, context_mode="full"),
     ]
 
-    def termination_condition(msgs: list) -> bool:
-        """Terminate when coordinator speaks after the last user message."""
-        # Find the last user message index
-        last_user_idx = -1
-        for i, m in enumerate(msgs):
-            if m.role == "user":
-                last_user_idx = i
-        # Check if coordinator spoke after the last user message
-        for m in msgs[last_user_idx + 1:]:
-            if m.role == "assistant" and m.author_name == "coordinator":
-                return True
-        return False
-
     workflow = (
         GroupChatBuilder(
             participants=participants,
-            termination_condition=termination_condition,
             orchestrator_agent=orchestrator,
             output_from=["coordinator"],
+            max_rounds=10,
         )
         .build()
     )
@@ -130,4 +132,3 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-
