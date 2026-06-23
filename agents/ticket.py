@@ -26,5 +26,4 @@ def create_ticket_agent(client: Any) -> Agent:
         ),
         tools=tools,
         default_options={"store": False},
-        require_per_service_call_history_persistence=True,
     )
