@@ -27,4 +27,5 @@ def create_knowledge_agent(client: Any, credential: Any) -> Agent:
         ),
         context_providers=[search_provider],
         default_options={"store": False},
+        require_per_service_call_history_persistence=True,
     )

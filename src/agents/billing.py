@@ -264,4 +264,5 @@ def create_billing_agent(client: Any) -> Agent:
             get_billing_history,
         ],
         default_options={"store": False},
+        require_per_service_call_history_persistence=True,
     )

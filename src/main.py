@@ -49,6 +49,7 @@ async def main() -> None:
             "the request is complete."
         ),
         default_options={"store": False},
+        require_per_service_call_history_persistence=True,
     )
 
     workflow = (

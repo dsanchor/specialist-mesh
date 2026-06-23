@@ -188,4 +188,5 @@ def create_iam_agent(client: Any) -> Agent:
             get_user_permissions,
         ],
         default_options={"store": False},
+        require_per_service_call_history_persistence=True,
     )
