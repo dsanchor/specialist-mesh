@@ -81,7 +81,7 @@ async def main() -> None:
 
     workflow_agent = workflow.as_agent()
     server = ResponsesHostServer(workflow_agent)
-    server.run()
+    await server.run_async()
 
 
 if __name__ == "__main__":
