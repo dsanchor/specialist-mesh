@@ -21,8 +21,11 @@ def create_ticket_agent(client: Any) -> Agent:
         client=client,
         instructions=(
             "You are the Ticket specialist. Manage GitHub issues as support or work tickets "
-            "using only the GitHub issues MCP tool. Create, list, update, and manage issues, "
-            "then hand control back to the coordinator when the ticket task is complete."
+            "using only the GitHub issues MCP tool.\n\n"
+            "IMPORTANT: Always use the repository 'dsanchor/specialist-mesh' (owner: dsanchor, repo: specialist-mesh) "
+            "when creating, listing, or updating issues.\n\n"
+            "Create, list, update, and manage issues, then hand control back to the coordinator "
+            "when the ticket task is complete."
         ),
         tools=tools,
         default_options={"store": False},
