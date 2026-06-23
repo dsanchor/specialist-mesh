@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import os
 
-from agent_framework import Agent, resolve_agent_id
+from agent_framework import Agent
 from agent_framework.foundry import FoundryChatClient
 from agent_framework.orchestrations import HandoffBuilder
 from agent_framework_foundry_hosting import ResponsesHostServer
@@ -17,24 +17,28 @@ from agents import (
     create_ticket_agent,
 )
 
-# Patch checkpoint storage to allow HandoffBuilder types for multi-turn conversations.
-# The hosting package only allows Azure message role types by default, but
-# HandoffBuilder needs to persist HandoffAgentUserRequest in checkpoints.
-import agent_framework_foundry_hosting._responses as _responses_mod
+# ---------------------------------------------------------------------------
+# Monkey-patch: extend checkpoint allowed types at the CLASS level so that
+# ALL instances of FileCheckpointStorage automatically permit the handoff type.
+# This must happen before any FileCheckpointStorage is instantiated.
+# ---------------------------------------------------------------------------
 from agent_framework._workflows._checkpoint import FileCheckpointStorage
 
-_HANDOFF_TYPE = "agent_framework_orchestrations._handoff:HandoffAgentUserRequest"
-_original_checkpoint_factory = _responses_mod._checkpoint_storage_for_context
+_HANDOFF_TYPES = frozenset([
+    "agent_framework_orchestrations._handoff:HandoffAgentUserRequest",
+])
+
+_original_init = FileCheckpointStorage.__init__
 
 
-def _patched_checkpoint_factory(root: str, context_id: str) -> FileCheckpointStorage:
-    storage = _original_checkpoint_factory(root, context_id)
-    # _allowed_types is a frozenset, so we must replace it entirely
-    storage._allowed_types = storage._allowed_types | frozenset([_HANDOFF_TYPE])
-    return storage
+def _patched_init(self, storage_path, *, allowed_checkpoint_types=None):
+    _original_init(self, storage_path, allowed_checkpoint_types=allowed_checkpoint_types)
+    # After original init sets self._allowed_types (frozenset), extend it
+    self._allowed_types = self._allowed_types | _HANDOFF_TYPES
 
 
-_responses_mod._checkpoint_storage_for_context = _patched_checkpoint_factory
+FileCheckpointStorage.__init__ = _patched_init  # type: ignore[assignment]
+# ---------------------------------------------------------------------------
 
 
 async def main() -> None:
@@ -47,10 +51,6 @@ async def main() -> None:
         credential=credential,
     )
 
-    # Observability (OTEL → App Insights) is auto-configured by the Foundry
-    # hosting infrastructure via agent.yaml ENABLE_SENSITIVE_DATA setting.
-    # No manual configure_azure_monitor() call needed for hosted agents.
-
     billing_agent = create_billing_agent(client)
     iam_agent = create_iam_agent(client)
     ticket_agent = create_ticket_agent(client)
@@ -59,7 +59,6 @@ async def main() -> None:
     coordinator = Agent(
         name="coordinator",
         client=client,
-        id="specialist-mesh-coordinator",
         instructions=(
             "You are the coordinator for specialist-mesh. Your job is to identify the user's "
             "intent and route the request to the appropriate specialist via handoff.\n\n"
@@ -75,7 +74,6 @@ async def main() -> None:
             "Do NOT keep iterating — one response is enough.\n"
             "3. When a specialist returns control to you, provide the final summary to the user."
         ),
-        default_options={"store": False},
         require_per_service_call_history_persistence=True,
     )
 
@@ -84,15 +82,16 @@ async def main() -> None:
             name="specialist_mesh",
             participants=[coordinator, billing_agent, iam_agent, ticket_agent, knowledge_agent],
             termination_condition=lambda conv: (
-                sum(1 for msg in conv if msg.author_name == "coordinator" and msg.role == "assistant") >= 10
+                len(conv) > 0
+                and conv[-1].author_name == "coordinator"
+                and conv[-1].role == "assistant"
+                and any(
+                    word in (conv[-1].text or "").lower()
+                    for word in ["help you", "assist you", "anything else", "you're welcome"]
+                )
             ),
         )
         .with_start_agent(coordinator)
-        .add_handoff(coordinator, [billing_agent, iam_agent, ticket_agent, knowledge_agent])
-        .add_handoff(billing_agent, [coordinator])
-        .add_handoff(iam_agent, [coordinator])
-        .add_handoff(ticket_agent, [coordinator])
-        .add_handoff(knowledge_agent, [coordinator])
         .build()
     )
 
@@ -103,3 +102,4 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
+
