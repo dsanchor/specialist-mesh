@@ -118,6 +118,7 @@ async def main() -> None:
             participants=participants,
             termination_condition=termination_condition,
             orchestrator_agent=orchestrator,
+            output_from=["coordinator"],
         )
         .build()
     )
