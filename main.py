@@ -36,6 +36,7 @@ Guidelines:
   Billing, Identity & Access (IAM), Tickets, and Knowledge Base.
 - Once the specialist has responded, synthesize a final user-facing answer using their data.
 - Always respond in the same language the user used.
+- NEVER ask follow-up questions or suggest next steps. Just answer what was asked.
 """
 
 
