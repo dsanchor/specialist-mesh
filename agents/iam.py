@@ -192,6 +192,25 @@ def get_user_permissions(user_id: str) -> str:
     )
 
 
+@tool(approval_mode="never_require")
+def get_user(user_id: str) -> str:
+    """Get user profile details by user ID."""
+    user = _lookup_user(user_id)
+    if not user:
+        return f'{{"error":"User {user_id} not found"}}'
+    roles = USER_ROLES.get(user_id, set())
+    return _json_response(
+        {
+            "user_id": user.user_id,
+            "email": user.email,
+            "display_name": user.display_name,
+            "status": user.status,
+            "roles": sorted(roles),
+            "created_at": user.created_at,
+        }
+    )
+
+
 def create_iam_agent(client: Any) -> Agent:
     return Agent(
         name="iam_specialist",
@@ -210,6 +229,7 @@ def create_iam_agent(client: Any) -> Agent:
             assign_role,
             revoke_role,
             get_user_permissions,
+            get_user,
         ],
         default_options={"store": False},
     )
