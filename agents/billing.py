@@ -322,7 +322,10 @@ def create_billing_agent(client: Any) -> Agent:
         instructions=(
             "You are the Billing specialist. Handle billing and invoicing requests only by "
             "using the provided tools. Complete the requested billing task, summarize the "
-            "result clearly, and then hand control back to the coordinator."
+            "result clearly, and then hand control back to the coordinator.\n\n"
+            "IMPORTANT: Always consider the full conversation history when responding. "
+            "Use context from previous messages to understand the user's intent and provide "
+            "a complete, contextually relevant answer."
         ),
         tools=[
             create_invoice,

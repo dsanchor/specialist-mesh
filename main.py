@@ -90,12 +90,13 @@ async def main() -> None:
     )
 
     # Wrap each agent in TracedAgentExecutor for custom OTEL spans
+    # context_mode="full" ensures specialists receive the entire conversation history
     participants = [
-        TracedAgentExecutor(billing_agent, id=billing_agent.name),
-        TracedAgentExecutor(iam_agent, id=iam_agent.name),
-        TracedAgentExecutor(ticket_agent, id=ticket_agent.name),
-        TracedAgentExecutor(knowledge_agent, id=knowledge_agent.name),
-        TracedAgentExecutor(coordinator, id=coordinator.name),
+        TracedAgentExecutor(billing_agent, id=billing_agent.name, context_mode="full"),
+        TracedAgentExecutor(iam_agent, id=iam_agent.name, context_mode="full"),
+        TracedAgentExecutor(ticket_agent, id=ticket_agent.name, context_mode="full"),
+        TracedAgentExecutor(knowledge_agent, id=knowledge_agent.name, context_mode="full"),
+        TracedAgentExecutor(coordinator, id=coordinator.name, context_mode="full"),
     ]
 
     workflow = (
