@@ -5,7 +5,6 @@ import os
 
 from agent_framework import Agent, resolve_agent_id
 from agent_framework.foundry import FoundryChatClient
-from agent_framework.observability import get_tracer
 from agent_framework.orchestrations import HandoffBuilder
 from agent_framework_foundry_hosting import ResponsesHostServer
 from azure.identity import DefaultAzureCredential
@@ -29,14 +28,9 @@ async def main() -> None:
         credential=credential,
     )
 
-    # Configure Azure Monitor — retrieves the Application Insights connection string
-    # from the Foundry project and sets up tracing automatically.
-    await client.configure_azure_monitor(
-        enable_sensitive_data=os.environ.get("ENABLE_SENSITIVE_DATA", "true").lower() == "true",
-        enable_live_metrics=True,
-    )
-
-    print("Observability configured. Starting Specialist Mesh...")
+    # Observability (OTEL → App Insights) is auto-configured by the Foundry
+    # hosting infrastructure via agent.yaml ENABLE_SENSITIVE_DATA setting.
+    # No manual configure_azure_monitor() call needed for hosted agents.
 
     billing_agent = create_billing_agent(client)
     iam_agent = create_iam_agent(client)
@@ -80,15 +74,6 @@ async def main() -> None:
         .add_handoff(iam_agent, [coordinator])
         .add_handoff(ticket_agent, [coordinator])
         .add_handoff(knowledge_agent, [coordinator])
-        .with_autonomous_mode(
-            turn_limits={
-                resolve_agent_id(coordinator): 4,
-                resolve_agent_id(billing_agent): 6,
-                resolve_agent_id(iam_agent): 6,
-                resolve_agent_id(ticket_agent): 6,
-                resolve_agent_id(knowledge_agent): 6,
-            }
-        )
         .build()
     )
 

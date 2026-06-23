@@ -2,7 +2,5 @@ agent-framework[azure]
 agent-framework-foundry-hosting
 agent-framework-orchestrations
 azure-identity
-azure-monitor-opentelemetry
-openai-agents
 python-dotenv
 pydantic
