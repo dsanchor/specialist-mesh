@@ -3,12 +3,14 @@ from __future__ import annotations
 import asyncio
 import os
 
-from agent_framework import Agent
+from agent_framework import Agent, AgentExecutor
 from agent_framework.foundry import FoundryChatClient
+from agent_framework.observability import get_tracer
 from agent_framework.orchestrations import GroupChatBuilder
 from agent_framework_foundry_hosting import ResponsesHostServer
 from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
+from opentelemetry.trace import SpanKind
 
 from agents import (
     create_billing_agent,
@@ -16,6 +18,8 @@ from agents import (
     create_knowledge_agent,
     create_ticket_agent,
 )
+
+tracer = get_tracer()
 
 COORDINATOR_INSTRUCTIONS = """
 You are the orchestrator for a multi-agent system. Your ONLY job is to select which agent speaks next.
@@ -33,6 +37,21 @@ DECISION PROCESS:
 3. Once the specialist has responded, select "coordinator" to deliver the answer.
 4. If the request is a greeting or general question, select "coordinator" directly.
 """
+
+
+class TracedAgentExecutor(AgentExecutor):
+    """AgentExecutor that wraps agent execution in a custom OTEL span."""
+
+    async def _run_agent_and_emit(self, ctx):
+        with tracer.start_as_current_span(
+            f"specialist.{self.id}",
+            kind=SpanKind.INTERNAL,
+            attributes={
+                "agent.name": self.id,
+                "agent.type": "specialist",
+            },
+        ):
+            return await super()._run_agent_and_emit(ctx)
 
 
 async def main() -> None:
@@ -63,7 +82,6 @@ async def main() -> None:
         client=client,
     )
 
-    # Orchestrator: selects next speaker (uses COORDINATOR_INSTRUCTIONS)
     orchestrator = Agent(
         name="orchestrator",
         description="Selects which specialist or coordinator speaks next",
@@ -71,9 +89,18 @@ async def main() -> None:
         client=client,
     )
 
+    # Wrap each agent in TracedAgentExecutor for custom OTEL spans
+    participants = [
+        TracedAgentExecutor(billing_agent, id=billing_agent.name),
+        TracedAgentExecutor(iam_agent, id=iam_agent.name),
+        TracedAgentExecutor(ticket_agent, id=ticket_agent.name),
+        TracedAgentExecutor(knowledge_agent, id=knowledge_agent.name),
+        TracedAgentExecutor(coordinator, id=coordinator.name),
+    ]
+
     workflow = (
         GroupChatBuilder(
-            participants=[billing_agent, iam_agent, ticket_agent, knowledge_agent, coordinator],
+            participants=participants,
             termination_condition=lambda msgs: (
                 sum(1 for m in msgs if m.role == "assistant" and m.author_name == "coordinator") >= 1
             ),
@@ -89,6 +116,4 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
 
