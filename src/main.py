@@ -5,6 +5,7 @@ import os
 
 from agent_framework import Agent, resolve_agent_id
 from agent_framework.foundry import FoundryChatClient
+from agent_framework.observability import get_tracer
 from agent_framework.orchestrations import HandoffBuilder
 from agent_framework_foundry_hosting import ResponsesHostServer
 from azure.identity import DefaultAzureCredential
@@ -28,10 +29,14 @@ async def main() -> None:
         credential=credential,
     )
 
+    # Configure Azure Monitor — retrieves the Application Insights connection string
+    # from the Foundry project and sets up tracing automatically.
     await client.configure_azure_monitor(
         enable_sensitive_data=os.environ.get("ENABLE_SENSITIVE_DATA", "true").lower() == "true",
         enable_live_metrics=True,
     )
+
+    print("Observability configured. Starting Specialist Mesh...")
 
     billing_agent = create_billing_agent(client)
     iam_agent = create_iam_agent(client)
@@ -41,6 +46,7 @@ async def main() -> None:
     coordinator = Agent(
         name="coordinator",
         client=client,
+        id="specialist-mesh-coordinator",
         instructions=(
             "You are the coordinator for specialist-mesh. Your only job is to identify the "
             "user's intent and route the request to exactly one appropriate specialist via "
