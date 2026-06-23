@@ -49,6 +49,7 @@ class TracedAgentExecutor(AgentExecutor):
             attributes={
                 "agent.name": self.id,
                 "agent.type": "specialist",
+                "gen_ai.agent.name": self.id,
             },
         ):
             return await super()._run_agent_and_emit(ctx)
