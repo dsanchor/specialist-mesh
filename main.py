@@ -25,17 +25,16 @@ Available specialists:
 - iam_specialist: password reset/change, user accounts, roles, permissions
 - ticket_specialist: create/manage GitHub issues as support tickets
 - knowledge_specialist: product documentation, knowledge base queries
-- coordinator: yourself — select this when a specialist has already provided an answer
-  and you need to deliver the final response to the user.
+- coordinator: select this ONLY when ALL parts of the user's request have been answered
+  by the specialists and you are ready to deliver the final synthesized response.
 
 Guidelines:
-- Analyze the user's request and select the appropriate specialist as next speaker.
-- After a specialist responds with results, select "coordinator" as next speaker
-  so you can synthesize and deliver the final answer to the user.
+- Analyze the user's request. Identify ALL domains involved (e.g. billing + IAM).
+- Route to each required specialist one at a time until all parts are covered.
+- Do NOT select "coordinator" until every part of the request has been handled.
+- If the request spans multiple domains, call each specialist sequentially.
 - If the request is a greeting or general question not matching any specialist,
   select "coordinator" immediately to respond directly.
-- When you speak as a participant (not as selector), provide a clear, helpful final
-  answer incorporating the specialist's results. Include relevant data from their response.
 """
 
 
