@@ -85,15 +85,23 @@ async def main() -> None:
         TracedAgentExecutor(knowledge_agent, id=knowledge_agent.name, context_mode="full"),
     ]
 
+    def _termination_per_turn(msgs: list) -> bool:
+        """Count assistant messages only after the last user message (current turn)."""
+        last_user_idx = -1
+        for i, m in enumerate(msgs):
+            if m.role == "user":
+                last_user_idx = i
+        turn_assistant_count = sum(
+            1 for m in msgs[last_user_idx + 1 :] if m.role == "assistant"
+        )
+        return turn_assistant_count >= 4
+
     workflow = (
         GroupChatBuilder(
             participants=participants,
             orchestrator_agent=orchestrator_agent,
-            intermediate_output_from=participants,
         )
-        .with_termination_condition(
-            lambda msgs: sum(1 for m in msgs if m.role == "assistant") >= 4
-        )
+        .with_termination_condition(_termination_per_turn)
         .build()
     )
 
