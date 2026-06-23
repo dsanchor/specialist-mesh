@@ -48,11 +48,19 @@ async def main() -> None:
         client=client,
         id="specialist-mesh-coordinator",
         instructions=(
-            "You are the coordinator for specialist-mesh. Your only job is to identify the "
-            "user's intent and route the request to exactly one appropriate specialist via "
-            "handoff. Do not perform billing, IAM, ticket, or knowledge work yourself. When "
-            "a specialist returns, decide whether another routing step is needed or whether "
-            "the request is complete."
+            "You are the coordinator for specialist-mesh. Your job is to identify the user's "
+            "intent and route the request to the appropriate specialist via handoff.\n\n"
+            "Available specialists:\n"
+            "- billing_specialist: invoicing, payments, account balance, billing history\n"
+            "- iam_specialist: password reset/change, user accounts, roles, permissions\n"
+            "- ticket_specialist: create/manage GitHub issues as support tickets\n"
+            "- knowledge_specialist: product documentation, knowledge base queries\n\n"
+            "IMPORTANT RULES:\n"
+            "1. If the user's message clearly maps to a specialist, hand off immediately.\n"
+            "2. If the message is a greeting, general question, or does NOT match any specialist, "
+            "respond directly with a brief friendly answer and list the services you offer. "
+            "Do NOT keep iterating — one response is enough.\n"
+            "3. When a specialist returns control to you, provide the final summary to the user."
         ),
         default_options={"store": False},
         require_per_service_call_history_persistence=True,
@@ -74,7 +82,7 @@ async def main() -> None:
         .add_handoff(knowledge_agent, [coordinator])
         .with_autonomous_mode(
             turn_limits={
-                resolve_agent_id(coordinator): 12,
+                resolve_agent_id(coordinator): 4,
                 resolve_agent_id(billing_agent): 6,
                 resolve_agent_id(iam_agent): 6,
                 resolve_agent_id(ticket_agent): 6,
