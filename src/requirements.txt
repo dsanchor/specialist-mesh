@@ -1,0 +1,5 @@
+agent-framework[azure,foundry-hosting]
+azure-identity
+azure-monitor-opentelemetry
+python-dotenv
+pydantic
