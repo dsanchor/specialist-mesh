@@ -6,7 +6,7 @@
 .squad/.scratch/
 # Squad: SubSquad activation file (local to this machine)
 .squad-workstream
-src/.env
+.env
+.env.*
 __pycache__/
-src/.checkpoints/
-src/.env.local
+.checkpoints/

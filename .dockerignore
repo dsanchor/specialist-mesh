@@ -1,0 +1,14 @@
+__pycache__
+*.pyc
+.env
+.env.*
+.checkpoints
+.squad
+.copilot
+.github
+.git
+.gitignore
+.gitattributes
+.foundry
+README.md
+agent.manifest.yaml
