@@ -4,8 +4,8 @@ protocols:
   - protocol: responses
     version: 1.0.0
 resources:
-  cpu: "0.25"
-  memory: "0.5Gi"
+  cpu: "0.5"
+  memory: "1Gi"
 environment_variables:
   - name: FOUNDRY_PROJECT_ENDPOINT
     value: ${FOUNDRY_PROJECT_ENDPOINT}

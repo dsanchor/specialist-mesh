@@ -2,7 +2,7 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY . user_agent/
+COPY src/ user_agent/
 WORKDIR /app/user_agent
 
 RUN pip install -r requirements.txt

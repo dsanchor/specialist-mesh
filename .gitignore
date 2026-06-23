@@ -8,3 +8,4 @@
 .squad-workstream
 src/.env
 __pycache__/
+src/.checkpoints/
