@@ -17,7 +17,9 @@ from agents import (
     create_ticket_agent,
 )
 
-# Patch checkpoint storage to allow HandoffBuilder types for multi-turn conversations
+# Patch checkpoint storage to allow HandoffBuilder types for multi-turn conversations.
+# The hosting package only allows Azure message role types by default, but
+# HandoffBuilder needs to persist HandoffAgentUserRequest in checkpoints.
 import agent_framework_foundry_hosting._responses as _responses_mod
 from agent_framework._workflows._checkpoint import FileCheckpointStorage
 
@@ -27,7 +29,8 @@ _original_checkpoint_factory = _responses_mod._checkpoint_storage_for_context
 
 def _patched_checkpoint_factory(root: str, context_id: str) -> FileCheckpointStorage:
     storage = _original_checkpoint_factory(root, context_id)
-    storage.allowed_checkpoint_types.add(_HANDOFF_TYPE)
+    # _allowed_types is a frozenset, so we must replace it entirely
+    storage._allowed_types = storage._allowed_types | frozenset([_HANDOFF_TYPE])
     return storage
 
 
