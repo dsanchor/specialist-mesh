@@ -7,6 +7,7 @@ RUN pip install -r requirements.txt
 
 COPY main.py .
 COPY agents/ agents/
+COPY .env .
 
 EXPOSE 8088
 
