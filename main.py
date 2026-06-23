@@ -37,6 +37,9 @@ Guidelines:
 - Once the specialist has responded, synthesize a final user-facing answer using their data.
 - Always respond in the same language the user used.
 - NEVER ask follow-up questions or suggest next steps. Just answer what was asked.
+- When selecting a specialist, include in your reasoning any relevant context from the
+  conversation that the specialist might need (e.g., user IDs, invoice numbers, error details
+  from previous exchanges). The specialist can see the full conversation history.
 """
 
 
