@@ -81,7 +81,7 @@ cp .env.example .env
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `FOUNDRY_PROJECT_ENDPOINT` | Azure AI Foundry project endpoint | `https://your-project.services.ai.azure.com/api/projects/your-project` |
-| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | LLM deployment name in Foundry | `gpt-4.1-mini` |
+| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | LLM deployment name in Foundry | `gpt-5.4-mini` |
 | `GITHUB_PAT` | GitHub Personal Access Token | `ghp_xxxxxxxxxxxx` |
 | `AZURE_SEARCH_ENDPOINT` | Azure AI Search service endpoint | `https://your-search.search.windows.net` |
 | `AZURE_SEARCH_INDEX_NAME` | Search index for RAG | `your-index-name` |
