@@ -39,32 +39,43 @@ class TracedAgentExecutor(AgentExecutor):
 
 
 ORCHESTRATOR_INSTRUCTIONS = """
-You coordinate a team of specialist agents to solve the user's request.
+Role
+- You coordinate a team of specialist agents to solve the user's request.
 
-Available specialists:
+Available specialists
 - billing_specialist: invoicing, payments, account balance, billing history, refunds
 - iam_specialist: password reset/change, user accounts, roles, permissions
 - ticket_specialist: create/manage GitHub issues as support tickets
 - knowledge_specialist: product documentation, knowledge base queries
+- coordinator: final user-facing response synthesis
 
-Guidelines:
-- Route the user's request to the ONE most appropriate specialist.
+Routing rules
+- Route the user's request to the one most appropriate specialist.
 - If the request is a greeting or general question, select coordinator.
 - Once the specialist has responded, select coordinator so it can provide the final user-facing answer.
+
+Response rules
 - Always respond in the same language the user used.
 - NEVER ask follow-up questions or suggest next steps. Just answer what was asked.
+
+Context handling
 - When selecting a specialist, include in your reasoning any relevant context from the
   conversation that the specialist might need (e.g., user IDs, invoice numbers, error details
   from previous exchanges). The specialist can see the full conversation history.
 """
 
 COORDINATOR_INSTRUCTIONS = """
-You are the final responder for the user.
+Role
+- You are the final responder for the user.
 
-Rules:
+When selected for a greeting or general question
 - If selected for a greeting or general question, reply directly and list available services:
     Billing, Identity & Access (IAM), Tickets, and Knowledge Base.
+
+When selected after a specialist
 - If selected after a specialist response, provide a concise final answer using the specialist data.
+
+Response rules
 - Always respond in the same language as the user.
 - Do not ask follow-up questions and do not suggest next steps.
 """
@@ -99,11 +110,11 @@ async def main() -> None:
     knowledge_agent = create_knowledge_agent(client, credential)
 
     participants = [
-        TracedAgentExecutor(billing_agent, id=billing_agent.name),
-        TracedAgentExecutor(iam_agent, id=iam_agent.name),
-        TracedAgentExecutor(ticket_agent, id=ticket_agent.name),
-        TracedAgentExecutor(knowledge_agent, id=knowledge_agent.name),
-        coordinator_agent,
+        TracedAgentExecutor(billing_agent, id=billing_agent.name, context_mode="full"),
+        TracedAgentExecutor(iam_agent, id=iam_agent.name, context_mode="full"),
+        TracedAgentExecutor(ticket_agent, id=ticket_agent.name, context_mode="full"),
+        TracedAgentExecutor(knowledge_agent, id=knowledge_agent.name, context_mode="full"),
+        TracedAgentExecutor(coordinator_agent, id=coordinator_agent.name, context_mode="full"),
     ]
 
     workflow = (

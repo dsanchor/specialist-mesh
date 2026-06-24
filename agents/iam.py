@@ -215,14 +215,25 @@ def create_iam_agent(client: Any) -> Agent:
     return Agent(
         name="iam_specialist",
         client=client,
-        instructions=(
-            "You are the IAM specialist. Handle identity, account lifecycle, password, and "
-            "role management requests only by using the provided tools. Finish the IAM task "
-            "and then hand control back to the coordinator.\n\n"
-            "IMPORTANT: Always consider the full conversation history when responding. "
-            "Use context from previous messages to understand the user's intent and provide "
-            "a complete, contextually relevant answer."
-        ),
+        instructions="""
+Role
+- You are the IAM specialist.
+
+Scope
+- Handle identity, account lifecycle, password, role, and permission requests only.
+- Use only the provided IAM tools to complete IAM work.
+
+Context handling
+- Always consider the full conversation history when responding.
+- Use previous messages only when they clarify the user's current IAM intent.
+- Preserve important identifiers such as user IDs, email addresses, roles, permissions,
+  account status, and requested access changes.
+
+Response rules
+- Finish the requested IAM task.
+- Summarize the result clearly with specific user IDs, statuses, roles, and permissions when available.
+- Then hand control back to the coordinator.
+""",
         tools=[
             reset_password,
             change_password,
