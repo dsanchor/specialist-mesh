@@ -138,6 +138,8 @@ For more details on Foundry deployment, see the [Azure AI Foundry documentation]
 
 ## Observability
 
+Tracing is initialized at startup through `agent_framework.observability.configure_otel_providers()`. By default it exports to the local OTLP endpoint used by Foundry Toolkit and honors the `ENABLE_SENSITIVE_DATA` setting when capturing prompts and completions.
+
 All agent invocations, tool calls, and handoffs are traced via OpenTelemetry and automatically exported to the Azure Application Insights instance linked to your Foundry project. Traces include:
 
 - **Agent invocations**: Start/end times, input/output, status

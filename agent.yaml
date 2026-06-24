@@ -4,8 +4,8 @@ protocols:
   - protocol: responses
     version: 1.0.0
 resources:
-  cpu: '0.5'
-  memory: 1.0Gi
+  cpu: '1.0'
+  memory: 2.0Gi
 environment_variables:
   - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
     value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
@@ -17,3 +17,4 @@ environment_variables:
     value: ${AZURE_SEARCH_INDEX_NAME}
   - name: ENABLE_SENSITIVE_DATA
     value: true
+dockerfile_path: Dockerfile

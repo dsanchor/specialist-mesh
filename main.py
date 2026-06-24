@@ -3,14 +3,12 @@ from __future__ import annotations
 import asyncio
 import os
 
-from agent_framework import Agent, AgentExecutor
+from agent_framework import Agent
 from agent_framework.foundry import FoundryChatClient
-from agent_framework.observability import get_tracer
 from agent_framework.orchestrations import GroupChatBuilder
 from agent_framework_foundry_hosting import ResponsesHostServer
 from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
-from opentelemetry.trace import SpanKind
 
 from agents import (
     create_billing_agent,
@@ -18,8 +16,6 @@ from agents import (
     create_knowledge_agent,
     create_ticket_agent,
 )
-
-tracer = get_tracer()
 
 ORCHESTRATOR_INSTRUCTIONS = """
 You coordinate a team of specialist agents to solve the user's request.
@@ -32,9 +28,8 @@ Available specialists:
 
 Guidelines:
 - Route the user's request to the ONE most appropriate specialist.
-- If the request is a greeting or general question, respond directly with available services:
-  Billing, Identity & Access (IAM), Tickets, and Knowledge Base.
-- Once the specialist has responded, synthesize a final user-facing answer using their data.
+- If the request is a greeting or general question, select coordinator.
+- Once the specialist has responded, select coordinator so it can provide the final user-facing answer.
 - Always respond in the same language the user used.
 - NEVER ask follow-up questions or suggest next steps. Just answer what was asked.
 - When selecting a specialist, include in your reasoning any relevant context from the
@@ -42,27 +37,16 @@ Guidelines:
   from previous exchanges). The specialist can see the full conversation history.
 """
 
+COORDINATOR_INSTRUCTIONS = """
+You are the final responder for the user.
 
-class TracedAgentExecutor(AgentExecutor):
-    """AgentExecutor that wraps agent execution in a custom OTEL span and preserves context."""
-
-    async def _run_agent_and_emit(self, ctx):
-        with tracer.start_as_current_span(
-            f"specialist.{self.id}",
-            kind=SpanKind.INTERNAL,
-            attributes={
-                "agent.name": self.id,
-                "agent.type": "specialist",
-                "gen_ai.agent.name": self.id,
-            },
-        ):
-            await super()._run_agent_and_emit(ctx)
-            # Restore cache from full_conversation so that conversation history
-            # survives checkpointing across turns in hosted mode.
-            # The base class clears _cache after emitting, which means on the
-            # next turn participants lose all prior context.
-            self._cache = list(self._full_conversation)
-
+Rules:
+- If selected for a greeting or general question, reply directly and list available services:
+    Billing, Identity & Access (IAM), Tickets, and Knowledge Base.
+- If selected after a specialist response, provide a concise final answer using the specialist data.
+- Always respond in the same language as the user.
+- Do not ask follow-up questions and do not suggest next steps.
+"""
 
 async def main() -> None:
     load_dotenv()
@@ -74,11 +58,6 @@ async def main() -> None:
         credential=credential,
     )
 
-    billing_agent = create_billing_agent(client)
-    iam_agent = create_iam_agent(client)
-    ticket_agent = create_ticket_agent(client)
-    knowledge_agent = create_knowledge_agent(client, credential)
-
     orchestrator_agent = Agent(
         name="orchestrator",
         description="Coordinates specialist agents to solve user requests",
@@ -86,30 +65,31 @@ async def main() -> None:
         client=client,
     )
 
-    participants = [
-        TracedAgentExecutor(billing_agent, id=billing_agent.name, context_mode="full"),
-        TracedAgentExecutor(iam_agent, id=iam_agent.name, context_mode="full"),
-        TracedAgentExecutor(ticket_agent, id=ticket_agent.name, context_mode="full"),
-        TracedAgentExecutor(knowledge_agent, id=knowledge_agent.name, context_mode="full"),
-    ]
+    coordinator_agent = Agent(
+        name="coordinator",
+        description="Delivers the final response to the user",
+        instructions=COORDINATOR_INSTRUCTIONS,
+        client=client,
+    )
 
-    def _termination_per_turn(msgs: list) -> bool:
-        """Count assistant messages only after the last user message (current turn)."""
-        last_user_idx = -1
-        for i, m in enumerate(msgs):
-            if m.role == "user":
-                last_user_idx = i
-        turn_assistant_count = sum(
-            1 for m in msgs[last_user_idx + 1 :] if m.role == "assistant"
-        )
-        return turn_assistant_count >= 4
+    billing_agent = create_billing_agent(client)
+    iam_agent = create_iam_agent(client)
+    ticket_agent = create_ticket_agent(client)
+    knowledge_agent = create_knowledge_agent(client, credential)
+
+    participants = [
+        billing_agent,
+        iam_agent,
+        ticket_agent,
+        knowledge_agent,
+        coordinator_agent,
+    ]
 
     workflow = (
         GroupChatBuilder(
             participants=participants,
             orchestrator_agent=orchestrator_agent,
         )
-        .with_termination_condition(_termination_per_turn)
         .build()
     )
 
