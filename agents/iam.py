@@ -232,6 +232,12 @@ Context handling
 Response rules
 - Finish the requested IAM task.
 - Summarize the result clearly with specific user IDs, statuses, roles, and permissions when available.
+- Use Markdown with clear sections such as `Summary`, `User details`, `Roles`, `Permissions`, and
+    `Result` when useful.
+- Use bullets for a single user and compact tables when comparing multiple roles, permissions, or users.
+- Explain what changed or what was found in enough detail that the coordinator can produce a useful
+    final response without needing to inspect raw JSON.
+- Do not be overly terse; clarity and completeness are more important than brevity.
 - Then hand control back to the coordinator.
 """,
         tools=[

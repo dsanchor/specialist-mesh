@@ -1,61 +1,61 @@
 # Specialist Mesh
 
-A multi-agent orchestration system built with Microsoft Agent Framework (Python) that routes user requests to specialized agents via a coordinator using handoff patterns.
+A multi-agent orchestration system built with Microsoft Agent Framework (Python) that routes user requests to specialized agents through a group chat orchestrator and returns a synthesized user-facing response.
 
 ## Architecture
 
-Specialist Mesh implements a **Coordinator + 4 Specialists** pattern:
+Specialist Mesh implements an **Orchestrator + Coordinator + 4 Specialists** pattern:
 
 ```
 ┌─────────────────────────────────────────────────┐
 │        User Request (Natural Language)          │
 └─────────────────────────┬───────────────────────┘
                           │
-                    ┌─────▼─────┐
-                    │ Coordinator│ (Intent Detection & Routing)
-                    └─────┬─────┘
-       ┌────────────┬─────┴──────┬──────────────┐
-       │            │            │              │
-   ┌───▼────┐  ┌───▼────┐  ┌───▼────┐  ┌───▼──────┐
-   │Billing │  │  IAM   │  │Ticket  │  │Knowledge │
-   │ Agent  │  │ Agent  │  │ Agent  │  │ Agent    │
-   │(10t)   │  │ (8t)   │  │(MCP)   │  │(RAG)     │
-   └────────┘  └────────┘  └────────┘  └──────────┘
+                    ┌─────▼──────┐
+                    │Orchestrator│ (Intent Detection & Speaker Selection)
+                    └─────┬──────┘
+       ┌────────────┬─────┴──────┬──────────────┬──────────────┐
+       │            │            │              │              │
+   ┌───▼────┐  ┌────▼───┐  ┌────▼───┐  ┌───────▼──┐  ┌────────▼───┐
+   │Billing │  │  IAM   │  │Ticket  │  │Knowledge │  │Coordinator │
+   │ Agent  │  │ Agent  │  │ Agent  │  │ Agent    │  │  Response  │
+   │(10t)   │  │ (9t)   │  │(MCP)   │  │(Search)  │  │ Synthesis  │
+   └────────┘  └────────┘  └────────┘  └──────────┘  └────────────┘
 ```
 
 ### Agents
 
-- **Coordinator**: Detects intent and routes requests to specialists. Performs no domain work—purely orchestration.
+- **Orchestrator**: Selects the appropriate specialist, or selects the coordinator for greetings/general requests and final response synthesis.
+- **Coordinator**: Delivers the final user-facing response using specialist output. It does not perform domain tool work.
 - **Billing Agent**: 10 tools for invoice management, payment processing, account balance queries, and billing history.
-- **IAM Agent**: 8 tools for user lifecycle management, password resets, role assignment, and permission auditing.
-- **Ticket Agent**: GitHub Issues integration via MCP server (remote server at `api.githubcopilot.com`).
-- **Knowledge Agent**: Azure AI Search RAG for documentation and product knowledge queries.
+- **IAM Agent**: 9 tools for user lifecycle management, password resets/changes, role assignment, and permission auditing.
+- **Ticket Agent**: GitHub Issues integration via MCP server at `https://api.githubcopilot.com/mcp/x/issues`.
+- **Knowledge Agent**: Azure AI Search context provider for documentation and product knowledge queries.
 
 ## Key Features
 
-- **HandoffBuilder with Autonomous Mode**: Agents autonomously route between specialists via handoff patterns without explicit coordinator intervention for follow-up requests.
-- **OTEL Observability**: OpenTelemetry traces automatically exported to Azure Monitor / App Insights connected to your Foundry project.
+- **GroupChatBuilder Orchestration**: The default entry point uses a group chat workflow with an orchestrator agent that chooses the next speaker and a coordinator agent that synthesizes final responses.
+- **Custom OTEL Spans**: Specialist execution is wrapped with OpenTelemetry spans that set agent-specific attributes such as `gen_ai.agent.name`.
 - **Hosted Agent Deployment**: Deploy as a response API in Azure AI Foundry with streamlined containerization.
-- **MCP Integration**: GitHub Issues support via the open-source MCP server for advanced ticket management.
-- **RAG Context Provider**: Azure AI Search integration for grounding Knowledge Agent responses in product documentation.
+- **MCP Integration**: GitHub Issues support through the GitHub Copilot MCP endpoint for ticket management.
+- **Azure AI Search Context Provider**: Search-backed grounding for Knowledge Agent responses.
 
 ## Project Structure
 
 ```
-src/
-├── main.py                    # Entry point and coordinator setup
+.
+├── main.py                    # Default hosted group chat entry point
 ├── requirements.txt           # Python dependencies
-├── .env.example              # Configuration template
-├── agent.yaml                # Agent definition (Foundry deployment)
-├── agent.manifest.yaml       # Agent manifest with metadata
-├── Dockerfile                # Container image (python:3.12-slim, port 8088)
+├── .env.example               # Configuration template
+├── agent.yaml                 # Hosted agent definition
+├── agent.manifest.yaml        # Hosted agent manifest and model resource metadata
+├── Dockerfile                 # Container image (Python 3.12 devcontainer base, port 8088)
 └── agents/
     ├── __init__.py
-    ├── billing.py            # Billing specialist agent
-    ├── iam.py                # IAM specialist agent
-    ├── ticket.py             # GitHub Issues specialist agent
-    ├── knowledge.py          # Knowledge/RAG specialist agent
-    └── coordinator.py        # Coordinator and routing logic
+    ├── billing.py             # Billing specialist agent and 10 local tools
+    ├── iam.py                 # IAM specialist agent and 9 local tools
+    ├── ticket.py              # GitHub Issues MCP specialist agent
+    └── knowledge.py           # Azure AI Search specialist agent
 ```
 
 ## Prerequisites
@@ -71,7 +71,6 @@ src/
 Configuration is managed via environment variables in a `.env` file. Copy `.env.example` to `.env` and fill in your values:
 
 ```bash
-cd src
 cp .env.example .env
 # Edit .env with your credentials and endpoints
 ```
@@ -103,8 +102,6 @@ source $HOME_VENVS/specialistmesh/bin/activate
 ### Install and run
 
 ```bash
-cd src
-
 # Install dependencies
 pip install -r requirements.txt
 
@@ -112,11 +109,15 @@ pip install -r requirements.txt
 cp .env.example .env
 # Edit .env with your credentials
 
-# Run the coordinator
+# Run the default hosted group chat workflow
 python main.py
 ```
 
-The coordinator will start and wait for user requests. It automatically initializes all specialists and sets up handoff routing.
+The hosted response server starts, initializes all specialists, and exposes the Responses protocol endpoint on port 8088.
+
+### Runtime entry point
+
+`main.py` is the current application entry point. Older experimental `main_*` variants have been removed, so local runs and hosted deployment both use the group chat workflow defined in `main.py`.
 
 ## Deployment
 
@@ -131,20 +132,20 @@ azd ai agent create
 
 1. **agent.yaml** defines the agent configuration (name, model, system prompt, tools).
 2. **agent.manifest.yaml** provides metadata for the Foundry hosting.
-3. **Dockerfile** packages the application in a `python:3.12-slim` container (exposed on port 8088).
+3. **Dockerfile** packages the application in a Python 3.12 container and exposes port 8088.
 4. Foundry handles routing of requests to the Response API and automatic scaling.
 
 For more details on Foundry deployment, see the [Azure AI Foundry documentation](https://learn.microsoft.com/en-us/azure/ai-foundry/).
 
 ## Observability
 
-Tracing is initialized at startup through `agent_framework.observability.configure_otel_providers()`. By default it exports to the local OTLP endpoint used by Foundry Toolkit and honors the `ENABLE_SENSITIVE_DATA` setting when capturing prompts and completions.
+The default group chat entry point creates custom spans around specialist execution through `agent_framework.observability.get_tracer()`. Those spans set agent attributes such as `gen_ai.agent.name`, `gen_ai.agent.id`, and `agent.name`, which makes specialist activity easier to distinguish in traces.
 
-All agent invocations, tool calls, and handoffs are traced via OpenTelemetry and automatically exported to the Azure Application Insights instance linked to your Foundry project. Traces include:
+The Agent Framework and hosting runtime can emit OpenTelemetry data according to the environment and hosting configuration. Traces can include:
 
 - **Agent invocations**: Start/end times, input/output, status
 - **Tool calls**: Tool name, parameters, results, duration
-- **Handoffs**: Source agent, target agent, handoff reason
+- **Group chat routing**: Orchestrator selections and specialist/coordinator turns
 - **Errors**: Full stack traces and context
 
 View traces in the Azure Portal under your Application Insights resource, or via the Foundry project dashboard.
@@ -156,7 +157,3 @@ View traces in the Azure Portal under your Application Insights resource, or via
 - [Azure AI Search Documentation](https://learn.microsoft.com/en-us/azure/search/)
 - [Azure AI Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry/)
 - [OpenTelemetry Python](https://opentelemetry.io/docs/instrumentation/python/)
-
-## License
-
-See LICENSE file in the repository.

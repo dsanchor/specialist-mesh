@@ -39,7 +39,13 @@ Fallback behavior
 
 Response rules
 - Provide a complete, contextually relevant answer grounded in the available search context.
-- Be concise and clear.
+- Use Markdown with clear sections such as `Answer`, `Key details`, and `Source context` when useful.
+- Prefer readable bullets or short paragraphs over dense blocks of text.
+- Include product names, feature names, error messages, configuration keys, and other identifiers exactly
+    when they appear in the available context.
+- If the answer depends on partial or missing search results, clearly say what is known and what is not
+    available from the configured index.
+- Do not be overly terse; clarity and completeness are more important than brevity.
 - Then hand control back to the coordinator.
 """,
         context_providers=[search_provider],

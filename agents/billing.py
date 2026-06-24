@@ -335,7 +335,12 @@ Context handling
 
 Response rules
 - Complete the requested billing task.
-- Summarize the result clearly with specific IDs, amounts, dates, and statuses when available.
+- Summarize the result clearly with specific IDs, amounts, dates, currencies, and statuses when available.
+- Use Markdown with clear sections such as `Summary`, `Billing details`, and `Result` when useful.
+- Use bullets for single records and compact tables for multiple invoices, payments, or history events.
+- Explain what changed or what was found in enough detail that the coordinator can produce a useful
+    final response without needing to inspect raw JSON.
+- Do not be overly terse; clarity and completeness are more important than brevity.
 - Then hand control back to the coordinator.
 """,
         tools=[
