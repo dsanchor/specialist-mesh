@@ -1,7 +1,8 @@
 agent-framework[azure]
 agent-framework-foundry-hosting
 agent-framework-orchestrations
-opentelemetry-exporter-otlp-proto-grpc
+opentelemetry-sdk
+azure-monitor-opentelemetry
 azure-identity
 python-dotenv
 pydantic

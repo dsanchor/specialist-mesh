@@ -3,12 +3,14 @@ from __future__ import annotations
 import asyncio
 import os
 
-from agent_framework import Agent
+from agent_framework import Agent, AgentExecutor
 from agent_framework.foundry import FoundryChatClient
+from agent_framework.observability import get_tracer
 from agent_framework.orchestrations import GroupChatBuilder
 from agent_framework_foundry_hosting import ResponsesHostServer
 from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
+from opentelemetry.trace import SpanKind
 
 from agents import (
     create_billing_agent,
@@ -16,6 +18,25 @@ from agents import (
     create_knowledge_agent,
     create_ticket_agent,
 )
+
+tracer = get_tracer()
+
+
+class TracedAgentExecutor(AgentExecutor):
+    """AgentExecutor that wraps agent execution with correct gen_ai.agent.name in OTEL spans."""
+
+    async def _run_agent_and_emit(self, ctx):
+        with tracer.start_as_current_span(
+            f"invoke_agent {self.id}",
+            kind=SpanKind.INTERNAL,
+            attributes={
+                "gen_ai.agent.name": self.id,
+                "gen_ai.agent.id": self.id,
+                "agent.name": self.id,
+            },
+        ):
+            await super()._run_agent_and_emit(ctx)
+
 
 ORCHESTRATOR_INSTRUCTIONS = """
 You coordinate a team of specialist agents to solve the user's request.
@@ -78,10 +99,10 @@ async def main() -> None:
     knowledge_agent = create_knowledge_agent(client, credential)
 
     participants = [
-        billing_agent,
-        iam_agent,
-        ticket_agent,
-        knowledge_agent,
+        TracedAgentExecutor(billing_agent, id=billing_agent.name),
+        TracedAgentExecutor(iam_agent, id=iam_agent.name),
+        TracedAgentExecutor(ticket_agent, id=ticket_agent.name),
+        TracedAgentExecutor(knowledge_agent, id=knowledge_agent.name),
         coordinator_agent,
     ]
 
