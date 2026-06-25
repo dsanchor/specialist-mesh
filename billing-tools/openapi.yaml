@@ -1,0 +1,607 @@
+openapi: 3.1.0
+info:
+  title: Billing Tools REST Service
+  version: 1.0.0
+  description: REST API that exposes the same billing operations and JSON payloads as the Billing agent tools.
+servers:
+  - url: http://localhost:8091
+    description: Local development server
+tags:
+  - name: Health
+  - name: Invoices
+  - name: Customers
+  - name: Payments
+  - name: Statements
+  - name: History
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Check service health
+      operationId: healthCheck
+      responses:
+        "200":
+          description: Service health status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              examples:
+                ok:
+                  value:
+                    status: ok
+  /openapi.yaml:
+    get:
+      tags:
+        - Health
+      summary: Get the OpenAPI document
+      operationId: getOpenApiDocument
+      responses:
+        "200":
+          description: OpenAPI document in YAML format.
+          content:
+            application/yaml:
+              schema:
+                type: string
+  /invoices:
+    post:
+      tags:
+        - Invoices
+      summary: Create a new invoice for a customer
+      operationId: createInvoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInvoiceRequest"
+            examples:
+              createInvoice:
+                value:
+                  customer_id: cust_acme
+                  amount: 99.95
+                  currency: USD
+                  due_date: "2026-08-15"
+                  description: Support package
+      responses:
+        "200":
+          description: Created invoice record.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceRecord"
+  /invoices/{invoice_id}:
+    get:
+      tags:
+        - Invoices
+      summary: Get invoice details by invoice ID
+      operationId: getInvoice
+      parameters:
+        - $ref: "#/components/parameters/InvoiceId"
+      responses:
+        "200":
+          description: Invoice details, or an error payload if the invoice is not found.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/InvoiceRecord"
+                  - $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                found:
+                  value:
+                    invoice_id: inv_001
+                    customer_id: cust_acme
+                    amount: 1500.0
+                    currency: USD
+                    due_date: "2026-07-15"
+                    description: Cloud hosting - June 2026
+                    status: open
+                    created_at: "2026-06-25T06:26:25.565180+00:00"
+                    canceled_at: null
+                notFound:
+                  value:
+                    error: Invoice inv_missing not found
+  /invoices/{invoice_id}/cancel:
+    post:
+      tags:
+        - Invoices
+      summary: Cancel an open invoice
+      operationId: cancelInvoice
+      parameters:
+        - $ref: "#/components/parameters/InvoiceId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CancelInvoiceRequest"
+            examples:
+              cancelInvoice:
+                value:
+                  reason: Canceled by request
+      responses:
+        "200":
+          description: Canceled invoice record, existing canceled invoice record, or an error payload if the invoice is not found.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/InvoiceRecord"
+                  - $ref: "#/components/schemas/ErrorResponse"
+  /customers/{customer_id}/invoices:
+    get:
+      tags:
+        - Invoices
+        - Customers
+      summary: List invoices for a customer
+      operationId: listInvoices
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+          example: open
+      responses:
+        "200":
+          description: Invoice list for the customer.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListInvoicesResponse"
+  /customers/{customer_id}/billing-address:
+    put:
+      tags:
+        - Customers
+      summary: Update a customer's billing address
+      operationId: updateBillingAddress
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBillingAddressRequest"
+            examples:
+              updateAddress:
+                value:
+                  billing_address: 1 Market Street, San Francisco, CA 94105
+      responses:
+        "200":
+          description: Updated billing address.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateBillingAddressResponse"
+  /customers/{customer_id}/balance:
+    get:
+      tags:
+        - Customers
+      summary: Get account balance for a customer
+      operationId: getAccountBalance
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+      responses:
+        "200":
+          description: Account balance for the customer.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountBalanceResponse"
+  /customers/{customer_id}/payments:
+    post:
+      tags:
+        - Payments
+        - Customers
+      summary: Apply a payment to an account
+      operationId: applyPayment
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplyPaymentRequest"
+            examples:
+              applyPayment:
+                value:
+                  amount: 100.0
+                  payment_reference: pay_123
+      responses:
+        "200":
+          description: Applied payment result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplyPaymentResponse"
+  /customers/{customer_id}/statement:
+    post:
+      tags:
+        - Statements
+        - Customers
+      summary: Generate a simulated account statement
+      operationId: generateStatement
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateStatementRequest"
+            examples:
+              generateStatement:
+                value:
+                  period_start: "2026-06-01"
+                  period_end: "2026-06-30"
+      responses:
+        "200":
+          description: Generated statement.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatementResponse"
+  /customers/{customer_id}/payment-method:
+    put:
+      tags:
+        - Payments
+        - Customers
+      summary: Update a customer's payment method
+      operationId: updatePaymentMethod
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePaymentMethodRequest"
+            examples:
+              updatePaymentMethod:
+                value:
+                  payment_method_token: tok_visa_9999
+                  payment_method_type: card
+      responses:
+        "200":
+          description: Updated payment method.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdatePaymentMethodResponse"
+  /customers/{customer_id}/billing-history:
+    get:
+      tags:
+        - History
+        - Customers
+      summary: Get recent billing history for a customer
+      operationId: getBillingHistory
+      parameters:
+        - $ref: "#/components/parameters/CustomerId"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+          example: 10
+      responses:
+        "200":
+          description: Recent billing history events.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingHistoryResponse"
+components:
+  parameters:
+    CustomerId:
+      name: customer_id
+      in: path
+      required: true
+      schema:
+        type: string
+      example: cust_acme
+    InvoiceId:
+      name: invoice_id
+      in: path
+      required: true
+      schema:
+        type: string
+      example: inv_001
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          example: ok
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+    InvoiceRecord:
+      type: object
+      required:
+        - invoice_id
+        - customer_id
+        - amount
+        - currency
+        - due_date
+        - description
+        - status
+        - created_at
+        - canceled_at
+      properties:
+        invoice_id:
+          type: string
+        customer_id:
+          type: string
+        amount:
+          type: number
+          format: double
+        currency:
+          type: string
+          default: USD
+        due_date:
+          type:
+            - string
+            - "null"
+          format: date
+        description:
+          type: string
+        status:
+          type: string
+          enum:
+            - open
+            - paid
+            - canceled
+        created_at:
+          type: string
+          format: date-time
+        canceled_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+    BillingEvent:
+      type: object
+      required:
+        - event_type
+        - message
+        - occurred_at
+        - metadata
+      properties:
+        event_type:
+          type: string
+        message:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+          additionalProperties: true
+    PaymentMethod:
+      type: object
+      required:
+        - payment_method_type
+        - payment_method_token
+        - updated_at
+      properties:
+        payment_method_type:
+          type: string
+        payment_method_token:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+    CreateInvoiceRequest:
+      type: object
+      required:
+        - customer_id
+        - amount
+      properties:
+        customer_id:
+          type: string
+        amount:
+          type: number
+          format: double
+        currency:
+          type: string
+          default: USD
+        due_date:
+          type:
+            - string
+            - "null"
+          format: date
+        description:
+          type: string
+          default: ""
+    CancelInvoiceRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          default: Canceled by request
+    ListInvoicesResponse:
+      type: object
+      required:
+        - customer_id
+        - invoice_count
+        - invoices
+      properties:
+        customer_id:
+          type: string
+        invoice_count:
+          type: integer
+        invoices:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceRecord"
+    UpdateBillingAddressRequest:
+      type: object
+      required:
+        - billing_address
+      properties:
+        billing_address:
+          type: string
+    UpdateBillingAddressResponse:
+      type: object
+      required:
+        - customer_id
+        - billing_address
+        - updated_at
+      properties:
+        customer_id:
+          type: string
+        billing_address:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+    AccountBalanceResponse:
+      type: object
+      required:
+        - customer_id
+        - balance
+        - currency
+        - retrieved_at
+      properties:
+        customer_id:
+          type: string
+        balance:
+          type: number
+          format: double
+        currency:
+          type: string
+          example: USD
+        retrieved_at:
+          type: string
+          format: date-time
+    ApplyPaymentRequest:
+      type: object
+      required:
+        - amount
+        - payment_reference
+      properties:
+        amount:
+          type: number
+          format: double
+        payment_reference:
+          type: string
+    ApplyPaymentResponse:
+      type: object
+      required:
+        - customer_id
+        - amount_applied
+        - payment_reference
+        - remaining_balance
+        - processed_at
+      properties:
+        customer_id:
+          type: string
+        amount_applied:
+          type: number
+          format: double
+        payment_reference:
+          type: string
+        remaining_balance:
+          type: number
+          format: double
+        processed_at:
+          type: string
+          format: date-time
+    GenerateStatementRequest:
+      type: object
+      properties:
+        period_start:
+          type:
+            - string
+            - "null"
+          format: date
+        period_end:
+          type:
+            - string
+            - "null"
+          format: date
+    StatementResponse:
+      type: object
+      required:
+        - customer_id
+        - period_start
+        - period_end
+        - balance
+        - invoices
+        - activity
+        - generated_at
+      properties:
+        customer_id:
+          type: string
+        period_start:
+          type:
+            - string
+            - "null"
+          format: date
+        period_end:
+          type:
+            - string
+            - "null"
+          format: date
+        balance:
+          type: number
+          format: double
+        invoices:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceRecord"
+        activity:
+          type: array
+          items:
+            $ref: "#/components/schemas/BillingEvent"
+        generated_at:
+          type: string
+          format: date-time
+    UpdatePaymentMethodRequest:
+      type: object
+      required:
+        - payment_method_token
+      properties:
+        payment_method_token:
+          type: string
+        payment_method_type:
+          type: string
+          default: card
+    UpdatePaymentMethodResponse:
+      type: object
+      required:
+        - customer_id
+        - payment_method
+      properties:
+        customer_id:
+          type: string
+        payment_method:
+          $ref: "#/components/schemas/PaymentMethod"
+    BillingHistoryResponse:
+      type: object
+      required:
+        - customer_id
+        - event_count
+        - events
+      properties:
+        customer_id:
+          type: string
+        event_count:
+          type: integer
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/BillingEvent"
