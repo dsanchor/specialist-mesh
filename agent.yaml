@@ -7,8 +7,6 @@ resources:
   cpu: '1.0'
   memory: 2.0Gi
 environment_variables:
-  - name: FOUNDRY_PROJECT_ENDPOINT
-    value: ${FOUNDRY_PROJECT_ENDPOINT}
   - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
     value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
   - name: BILLING_AGENT_VERSION
