@@ -1,0 +1,547 @@
+openapi: 3.1.0
+info:
+  title: IAM Tools REST Service
+  version: 1.0.0
+  description: REST API that exposes the same IAM operations and JSON payloads as the IAM agent tools.
+servers:
+  - url: http://localhost:8090
+    description: Local development server
+tags:
+  - name: Health
+  - name: Users
+  - name: Passwords
+  - name: Roles
+  - name: Permissions
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Check service health
+      operationId: healthCheck
+      responses:
+        "200":
+          description: Service health status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              examples:
+                ok:
+                  value:
+                    status: ok
+  /users:
+    post:
+      tags:
+        - Users
+      summary: Create a new user account
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+            examples:
+              newUser:
+                value:
+                  user_id: user_new
+                  email: new@example.com
+                  display_name: New User
+      responses:
+        "200":
+          description: Created user record, or an error payload if the user already exists.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/UserRecord"
+                  - $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                created:
+                  value:
+                    user_id: user_new
+                    email: new@example.com
+                    display_name: New User
+                    status: active
+                    password: ChangeMe123!
+                    created_at: "2026-06-25T06:26:55.074476+00:00"
+                alreadyExists:
+                  value:
+                    error: User user_new already exists
+  /users/{user_id}:
+    get:
+      tags:
+        - Users
+      summary: Get user profile details by user ID
+      operationId: getUser
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: User profile details, or an error payload if the user is not found.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/UserDetailsResponse"
+                  - $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                found:
+                  value:
+                    user_id: user_jdoe
+                    email: john.doe@acme.com
+                    display_name: John Doe
+                    status: active
+                    roles:
+                      - admin
+                      - billing-admin
+                    created_at: "2026-06-25T06:26:25.565180+00:00"
+                notFound:
+                  value:
+                    error: User user_missing not found
+  /users/{user_id}/permissions:
+    get:
+      tags:
+        - Permissions
+      summary: Get effective permissions for a user
+      operationId: getUserPermissions
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: Effective roles and permissions, or an error payload if the user is not found.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/UserPermissionsResponse"
+                  - $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                permissions:
+                  value:
+                    user_id: user_jdoe
+                    roles:
+                      - admin
+                      - billing-admin
+                    permissions:
+                      - billing:read
+                      - billing:refund
+                      - billing:write
+                      - roles:assign
+                      - roles:revoke
+                      - users:create
+                      - users:disable
+                    retrieved_at: "2026-06-25T06:26:30.215536+00:00"
+                notFound:
+                  value:
+                    error: User user_missing not found
+  /users/{user_id}/reset-password:
+    post:
+      tags:
+        - Passwords
+      summary: Reset a user's password and issue a temporary password
+      operationId: resetPassword
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: Temporary password details, or an error payload if the user is not found.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ResetPasswordResponse"
+                  - $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                reset:
+                  value:
+                    user_id: user_jdoe
+                    temporary_password: TempPass123!
+                    reset_at: "2026-06-25T06:26:55.129433+00:00"
+                notFound:
+                  value:
+                    error: User user_missing not found
+  /users/{user_id}/change-password:
+    post:
+      tags:
+        - Passwords
+      summary: Change a user's password when the old password matches
+      operationId: changePassword
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+            examples:
+              changePassword:
+                value:
+                  old_password: ChangeMe123!
+                  new_password: NewPass123!
+      responses:
+        "200":
+          description: Password change status, or an error payload if validation fails.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ChangePasswordResponse"
+                  - $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                changed:
+                  value:
+                    user_id: user_jdoe
+                    changed_at: "2026-06-25T06:26:55.086066+00:00"
+                    status: password_updated
+                oldPasswordMismatch:
+                  value:
+                    error: Old password does not match for user user_jdoe
+  /users/{user_id}/disable:
+    post:
+      tags:
+        - Users
+      summary: Disable a user account
+      operationId: disableUser
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DisableUserRequest"
+            examples:
+              disable:
+                value:
+                  reason: Disabled by administrator
+      responses:
+        "200":
+          description: Disabled user status, or an error payload if the user is not found.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/DisableUserResponse"
+                  - $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                disabled:
+                  value:
+                    user_id: user_dprince
+                    status: disabled
+                    reason: Disabled by administrator
+                    updated_at: "2026-06-25T06:26:55.101211+00:00"
+                notFound:
+                  value:
+                    error: User user_missing not found
+  /users/{user_id}/enable:
+    post:
+      tags:
+        - Users
+      summary: Enable a disabled user account
+      operationId: enableUser
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: Enabled user status, or an error payload if the user is not found.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/EnableUserResponse"
+                  - $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                enabled:
+                  value:
+                    user_id: user_dprince
+                    status: active
+                    updated_at: "2026-06-25T06:26:55.115281+00:00"
+                notFound:
+                  value:
+                    error: User user_missing not found
+  /users/{user_id}/roles/{role}:
+    post:
+      tags:
+        - Roles
+      summary: Assign a role to a user
+      operationId: assignRole
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+        - $ref: "#/components/parameters/Role"
+      responses:
+        "200":
+          description: Updated role list, or an error payload if the user is not found.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/RoleMutationResponse"
+                  - $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                assigned:
+                  value:
+                    user_id: user_jdoe
+                    roles:
+                      - admin
+                      - billing-admin
+                      - support
+                    updated_at: "2026-06-25T06:26:30.229024+00:00"
+                notFound:
+                  value:
+                    error: User user_missing not found
+    delete:
+      tags:
+        - Roles
+      summary: Revoke a role from a user
+      operationId: revokeRole
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+        - $ref: "#/components/parameters/Role"
+      responses:
+        "200":
+          description: Updated role list, or an error payload if the user is not found.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/RoleMutationResponse"
+                  - $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                revoked:
+                  value:
+                    user_id: user_jdoe
+                    roles:
+                      - admin
+                      - billing-admin
+                    updated_at: "2026-06-25T06:26:30.239630+00:00"
+                notFound:
+                  value:
+                    error: User user_missing not found
+components:
+  parameters:
+    UserId:
+      name: user_id
+      in: path
+      required: true
+      schema:
+        type: string
+      example: user_jdoe
+    Role:
+      name: role
+      in: path
+      required: true
+      schema:
+        type: string
+        enum:
+          - admin
+          - billing-admin
+          - support
+          - reader
+      example: support
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          example: ok
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+    CreateUserRequest:
+      type: object
+      required:
+        - user_id
+        - email
+        - display_name
+      properties:
+        user_id:
+          type: string
+        email:
+          type: string
+          format: email
+        display_name:
+          type: string
+    ChangePasswordRequest:
+      type: object
+      required:
+        - old_password
+        - new_password
+      properties:
+        old_password:
+          type: string
+        new_password:
+          type: string
+    DisableUserRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          default: Disabled by administrator
+    UserRecord:
+      type: object
+      required:
+        - user_id
+        - email
+        - display_name
+        - status
+        - password
+        - created_at
+      properties:
+        user_id:
+          type: string
+        email:
+          type: string
+          format: email
+        display_name:
+          type: string
+        status:
+          type: string
+          enum:
+            - active
+            - disabled
+        password:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    UserDetailsResponse:
+      type: object
+      required:
+        - user_id
+        - email
+        - display_name
+        - status
+        - roles
+        - created_at
+      properties:
+        user_id:
+          type: string
+        email:
+          type: string
+          format: email
+        display_name:
+          type: string
+        status:
+          type: string
+          enum:
+            - active
+            - disabled
+        roles:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+    UserPermissionsResponse:
+      type: object
+      required:
+        - user_id
+        - roles
+        - permissions
+        - retrieved_at
+      properties:
+        user_id:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        retrieved_at:
+          type: string
+          format: date-time
+    ResetPasswordResponse:
+      type: object
+      required:
+        - user_id
+        - temporary_password
+        - reset_at
+      properties:
+        user_id:
+          type: string
+        temporary_password:
+          type: string
+        reset_at:
+          type: string
+          format: date-time
+    ChangePasswordResponse:
+      type: object
+      required:
+        - user_id
+        - changed_at
+        - status
+      properties:
+        user_id:
+          type: string
+        changed_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum:
+            - password_updated
+    DisableUserResponse:
+      type: object
+      required:
+        - user_id
+        - status
+        - reason
+        - updated_at
+      properties:
+        user_id:
+          type: string
+        status:
+          type: string
+          enum:
+            - disabled
+        reason:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+    EnableUserResponse:
+      type: object
+      required:
+        - user_id
+        - status
+        - updated_at
+      properties:
+        user_id:
+          type: string
+        status:
+          type: string
+          enum:
+            - active
+        updated_at:
+          type: string
+          format: date-time
+    RoleMutationResponse:
+      type: object
+      required:
+        - user_id
+        - roles
+        - updated_at
+      properties:
+        user_id:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        updated_at:
+          type: string
+          format: date-time
