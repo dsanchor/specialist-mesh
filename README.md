@@ -1,10 +1,10 @@
 # Specialist Mesh
 
-A multi-agent orchestration system built with Microsoft Agent Framework (Python) that routes user requests to specialized agents through a group chat orchestrator and returns a synthesized user-facing response.
+A multi-agent orchestration system built with Microsoft Agent Framework (Python) where a group chat orchestrator answers general requests directly or routes domain requests to specialized Foundry agents.
 
 ## Architecture
 
-Specialist Mesh implements an **Orchestrator + Coordinator + 4 Specialists** pattern:
+Specialist Mesh implements an **Orchestrator + 4 Specialists** pattern. The orchestrator answers greetings and general capability questions directly; domain requests are routed to one specialist, whose response is returned to the user.
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -14,31 +14,28 @@ Specialist Mesh implements an **Orchestrator + Coordinator + 4 Specialists** pat
                     ┌─────▼──────┐
                     │Orchestrator│ (Intent Detection & Speaker Selection)
                     └─────┬──────┘
-       ┌────────────┬─────┴──────┬──────────────┬──────────────┐
-       │            │            │              │              │
-   ┌───▼────┐  ┌────▼───┐  ┌────▼───┐  ┌───────▼──┐  ┌────────▼───┐
-   │Billing │  │  IAM   │  │Ticket  │  │Knowledge │  │Coordinator │
-   │ Agent  │  │ Agent  │  │ Agent  │  │ Agent    │  │  Response  │
-   │(10t)   │  │ (9t)   │  │(MCP)   │  │(Search)  │  │ Synthesis  │
-   └────────┘  └────────┘  └────────┘  └──────────┘  └────────────┘
+       ┌────────────┬─────┴──────┬──────────────┐
+       │            │            │              │
+   ┌───▼────┐  ┌────▼───┐  ┌────▼───┐  ┌───────▼──┐
+   │Billing │  │  IAM   │  │Ticket  │  │Knowledge │
+   │ Agent  │  │ Agent  │  │ Agent  │  │ Agent    │
+   │Foundry │  │Foundry │  │Foundry │  │ Foundry  │
+   └────────┘  └────────┘  └────────┘  └──────────┘
 ```
 
 ### Agents
 
-- **Orchestrator**: Selects the appropriate specialist, or selects the coordinator for greetings/general requests and final response synthesis.
-- **Coordinator**: Delivers the final user-facing response using specialist output. It does not perform domain tool work.
-- **Billing Agent**: 10 tools for invoice management, payment processing, account balance queries, and billing history.
-- **IAM Agent**: 9 tools for user lifecycle management, password resets/changes, role assignment, and permission auditing.
-- **Ticket Agent**: GitHub Issues integration via MCP server at `https://api.githubcopilot.com/mcp/x/issues`.
-- **Knowledge Agent**: Azure AI Search context provider for documentation and product knowledge queries.
+- **Orchestrator**: Answers general requests directly, or selects the appropriate specialist for domain work.
+- **Billing Agent**: Existing Foundry agent named by `BILLING_AGENT_NAME`.
+- **IAM Agent**: Existing Foundry agent named by `IAM_AGENT_NAME`.
+- **Ticket Agent**: Existing Foundry agent named by `TICKETING_AGENT_NAME`.
+- **Knowledge Agent**: Existing Foundry agent named by `KNOWLEDGE_BASE_AGENT_NAME`.
 
 ## Key Features
 
-- **GroupChatBuilder Orchestration**: The default entry point uses a group chat workflow with an orchestrator agent that chooses the next speaker and a coordinator agent that synthesizes final responses.
-- **Custom OTEL Spans**: Specialist execution is wrapped with OpenTelemetry spans that set agent-specific attributes such as `gen_ai.agent.name`.
+- **Single-turn GroupChat Orchestration**: The default entry point uses a group chat workflow where the orchestrator answers general requests directly, or chooses one specialist whose response is returned to the user without a final orchestration message.
 - **Hosted Agent Deployment**: Deploy as a response API in Azure AI Foundry with streamlined containerization.
-- **MCP Integration**: GitHub Issues support through the GitHub Copilot MCP endpoint for ticket management.
-- **Azure AI Search Context Provider**: Search-backed grounding for Knowledge Agent responses.
+- **Foundry Specialist Agents**: Billing, IAM, Ticketing, and Knowledge Base specialists are connected as existing Foundry agents.
 
 ## Project Structure
 
@@ -52,18 +49,17 @@ Specialist Mesh implements an **Orchestrator + Coordinator + 4 Specialists** pat
 ├── Dockerfile                 # Container image (Python 3.12 devcontainer base, port 8088)
 └── agents/
     ├── __init__.py
-    ├── billing.py             # Billing specialist agent and 10 local tools
-    ├── iam.py                 # IAM specialist agent and 9 local tools
-    ├── ticket.py              # GitHub Issues MCP specialist agent
-    └── knowledge.py           # Azure AI Search specialist agent
+    ├── billing.py             # Legacy local Billing specialist implementation
+    ├── iam.py                 # Legacy local IAM specialist implementation
+    ├── ticket.py              # Legacy local Ticket specialist implementation
+    └── knowledge.py           # Legacy local Knowledge specialist implementation
 ```
 
 ## Prerequisites
 
 - **Python 3.12+**
 - **Azure AI Foundry Project** with Azure Application Insights enabled
-- **Azure AI Search Service** (for the Knowledge agent)
-- **GitHub Personal Access Token** (PAT) with `repo:issues` scope (for the Ticket agent)
+- **Existing Foundry agents** for Billing, IAM, Ticketing, and Knowledge Base
 - **Docker** (optional, for local containerization testing)
 
 ## Configuration
@@ -81,9 +77,14 @@ cp .env.example .env
 |----------|-------------|---------|
 | `FOUNDRY_PROJECT_ENDPOINT` | Azure AI Foundry project endpoint | `https://your-project.services.ai.azure.com/api/projects/your-project` |
 | `AZURE_AI_MODEL_DEPLOYMENT_NAME` | LLM deployment name in Foundry | `gpt-5.4-mini` |
-| `GITHUB_PAT` | GitHub Personal Access Token | `ghp_xxxxxxxxxxxx` |
-| `AZURE_SEARCH_ENDPOINT` | Azure AI Search service endpoint | `https://your-search.search.windows.net` |
-| `AZURE_SEARCH_INDEX_NAME` | Search index for RAG | `your-index-name` |
+| `BILLING_AGENT_NAME` | Existing Billing specialist agent name in Foundry | `BillingAgent` |
+| `BILLING_AGENT_VERSION` | Billing specialist agent version | `3` |
+| `IAM_AGENT_NAME` | Existing IAM specialist agent name in Foundry | `IAMAgent` |
+| `IAM_AGENT_VERSION` | IAM specialist agent version | `4` |
+| `TICKETING_AGENT_NAME` | Existing Ticketing specialist agent name in Foundry | `TitketingAgent` |
+| `TICKETING_AGENT_VERSION` | Ticketing specialist agent version | `3` |
+| `KNOWLEDGE_BASE_AGENT_NAME` | Existing Knowledge Base specialist agent name in Foundry | `KnowledgeBaseAgent` |
+| `KNOWLEDGE_BASE_AGENT_VERSION` | Knowledge Base specialist agent version | `3` |
 | `ENABLE_SENSITIVE_DATA` | Include sensitive info in logs | `true` or `false` |
 
 ## Local Development
@@ -139,13 +140,11 @@ For more details on Foundry deployment, see the [Azure AI Foundry documentation]
 
 ## Observability
 
-The default group chat entry point creates custom spans around specialist execution through `agent_framework.observability.get_tracer()`. Those spans set agent attributes such as `gen_ai.agent.name`, `gen_ai.agent.id`, and `agent.name`, which makes specialist activity easier to distinguish in traces.
-
 The Agent Framework and hosting runtime can emit OpenTelemetry data according to the environment and hosting configuration. Traces can include:
 
 - **Agent invocations**: Start/end times, input/output, status
 - **Tool calls**: Tool name, parameters, results, duration
-- **Group chat routing**: Orchestrator selections and specialist/coordinator turns
+- **Group chat routing**: Orchestrator selections and specialist turns
 - **Errors**: Full stack traces and context
 
 View traces in the Azure Portal under your Application Insights resource, or via the Foundry project dashboard.

@@ -10,7 +10,7 @@ python iam-tools/main.py
 
 The service listens on `http://0.0.0.0:8090` by default.
 
-The OpenAPI document is available in [openapi.yaml](openapi.yaml) and from the running service at `GET /openapi.yaml`.
+The OpenAPI document is available in [openapi.yaml](openapi.yaml) and [openapi.json](openapi.json), and from the running service at `GET /openapi.yaml` and `GET /openapi.json`.
 
 ## Docker
 

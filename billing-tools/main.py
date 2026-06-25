@@ -12,6 +12,7 @@ from uuid import uuid4
 
 
 OPENAPI_DOCUMENT = Path(__file__).with_name("openapi.yaml")
+OPENAPI_JSON_DOCUMENT = Path(__file__).with_name("openapi.json")
 
 
 def _timestamp() -> str:
@@ -333,6 +334,9 @@ class BillingRequestHandler(BaseHTTPRequestHandler):
             return
         if path_parts == ["openapi.yaml"]:
             self._send_text(OPENAPI_DOCUMENT.read_text(encoding="utf-8"), "application/yaml")
+            return
+        if path_parts == ["openapi.json"]:
+            self._send_text(OPENAPI_JSON_DOCUMENT.read_text(encoding="utf-8"), "application/json")
             return
         if len(path_parts) == 2 and path_parts[0] == "invoices":
             self._send_json(get_invoice(path_parts[1]))

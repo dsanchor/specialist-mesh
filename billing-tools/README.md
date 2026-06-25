@@ -10,7 +10,7 @@ python billing-tools/main.py
 
 The service listens on `http://0.0.0.0:8091` by default.
 
-The OpenAPI document is available in [openapi.yaml](openapi.yaml) and from the running service at `GET /openapi.yaml`.
+The OpenAPI document is available in [openapi.yaml](openapi.yaml) and [openapi.json](openapi.json), and from the running service at `GET /openapi.yaml` and `GET /openapi.json`.
 
 ## Docker
 
@@ -52,4 +52,5 @@ curl -X POST http://localhost:8091/customers/cust_acme/payments \
   -H 'Content-Type: application/json' \
   -d '{"amount":100.0,"payment_reference":"pay_123"}'
 curl http://localhost:8091/openapi.yaml
+curl http://localhost:8091/openapi.json
 ```

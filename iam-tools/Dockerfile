@@ -4,6 +4,7 @@ WORKDIR /app
 
 COPY main.py .
 COPY openapi.yaml .
+COPY openapi.json .
 
 EXPOSE 8090
 

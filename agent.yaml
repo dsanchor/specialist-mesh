@@ -1,5 +1,5 @@
 kind: hosted
-name: specialist-mesh
+name: SpecialistMesh
 protocols:
   - protocol: responses
     version: 1.0.0
@@ -7,14 +7,18 @@ resources:
   cpu: '1.0'
   memory: 2.0Gi
 environment_variables:
+  - name: FOUNDRY_PROJECT_ENDPOINT
+    value: ${FOUNDRY_PROJECT_ENDPOINT}
   - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
     value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
-  - name: GITHUB_PAT
-    value: ${GITHUB_PAT}
-  - name: AZURE_SEARCH_ENDPOINT
-    value: ${AZURE_SEARCH_ENDPOINT}
-  - name: AZURE_SEARCH_INDEX_NAME
-    value: ${AZURE_SEARCH_INDEX_NAME}
+  - name: BILLING_AGENT_VERSION
+    value: ${BILLING_AGENT_VERSION}
+  - name: IAM_AGENT_VERSION
+    value: ${IAM_AGENT_VERSION}
+  - name: TICKETING_AGENT_VERSION
+    value: ${TICKETING_AGENT_VERSION}
+  - name: KNOWLEDGE_BASE_AGENT_VERSION
+    value: ${KNOWLEDGE_BASE_AGENT_VERSION}
   - name: ENABLE_SENSITIVE_DATA
     value: true
 dockerfile_path: Dockerfile

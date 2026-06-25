@@ -1,62 +1,84 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
+from typing import Literal
 
-from agent_framework import Agent, AgentExecutor
-from agent_framework.foundry import FoundryChatClient
-from agent_framework.observability import get_tracer
-from agent_framework.orchestrations import GroupChatBuilder
+from agent_framework import Agent, AgentExecutor, Message
+from agent_framework.foundry import FoundryAgent, FoundryChatClient
+from agent_framework.orchestrations import GroupChatBuilder, GroupChatOrchestrator, GroupChatState
+from agent_framework_orchestrations._base_group_chat_orchestrator import ParticipantRegistry
 from agent_framework_foundry_hosting import ResponsesHostServer
 from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
-from opentelemetry.trace import SpanKind
-
-from agents import (
-    create_billing_agent,
-    create_iam_agent,
-    create_knowledge_agent,
-    create_ticket_agent,
-)
-
-tracer = get_tracer()
+from pydantic import BaseModel, Field
 
 
-class TracedAgentExecutor(AgentExecutor):
-    """AgentExecutor that wraps agent execution with correct gen_ai.agent.name in OTEL spans."""
+ParticipantName = Literal[
+    "orchestrator",
+    "billing_specialist",
+    "iam_specialist",
+    "ticket_specialist",
+    "knowledge_specialist",
+]
 
-    async def _run_agent_and_emit(self, ctx):
-        with tracer.start_as_current_span(
-            f"invoke_agent {self.id}",
-            kind=SpanKind.INTERNAL,
-            attributes={
-                "gen_ai.agent.name": self.id,
-                "gen_ai.agent.id": self.id,
-                "agent.name": self.id,
-            },
-        ):
-            await super()._run_agent_and_emit(ctx)
+
+class RoutingDecision(BaseModel):
+    next_speaker: ParticipantName = Field(description="The participant that should answer the user request")
+    reason: str = Field(description="Brief reason for the routing decision")
+
+
+class SingleTurnGroupChatOrchestrator(GroupChatOrchestrator):
+    async def _handle_response(self, response, ctx) -> None:
+        messages = self._process_participant_response(response)
+        self._append_messages(messages)
+
+
+def create_foundry_specialist(
+    *,
+    project_endpoint: str,
+    credential: DefaultAzureCredential,
+    agent_name: str,
+    agent_version: str,
+) -> FoundryAgent:
+    return FoundryAgent(
+        project_endpoint=project_endpoint,
+        agent_name=agent_name,
+        agent_version=agent_version,
+        credential=credential,
+    )
+
+
 
 
 ORCHESTRATOR_INSTRUCTIONS = """
 Role
 - You coordinate a team of specialist agents to solve the user's request.
+- You also answer directly when the user's request does not require a specialist.
 
-Available specialists
+Available participants
+- orchestrator: greetings, general questions, what this agent can do, and requests that do not
+    belong to a specialist domain
 - billing_specialist: invoicing, payments, account balance, billing history, refunds
 - iam_specialist: password reset/change, user accounts, roles, permissions
 - ticket_specialist: create/manage GitHub issues as support tickets
 - knowledge_specialist: product documentation, knowledge base queries
-- coordinator: final user-facing response synthesis
 
 Routing rules
+- For greetings, general questions, capability questions, or requests that do not match any
+    specialist domain, select orchestrator and respond immediately.
 - Route the user's request to the one most appropriate specialist.
-- If the request is a greeting or general question, select coordinator.
-- Once the specialist has responded, select coordinator so it can provide the final user-facing answer.
+- If the request spans multiple domains, select the specialist that owns the user's primary goal.
+- The selected specialist must provide the final user-facing answer directly.
+- Do not call a specialist just to answer a greeting, explain available services, or handle a
+    general non-domain question.
 
 Response rules
 - Always respond in the same language the user used.
-- NEVER ask follow-up questions or suggest next steps unless a specialist tool cannot be used
+- When responding directly as orchestrator, briefly explain that you can help with Billing,
+    Identity & Access (IAM), Tickets, and Knowledge Base requests.
+- Never ask follow-up questions or suggest next steps unless a specialist tool cannot be used
     without a required identifier or subject.
 - Prefer complete, readable answers over very short answers.
 
@@ -66,40 +88,54 @@ Context handling
   from previous exchanges). The specialist can see the full conversation history.
 """
 
-COORDINATOR_INSTRUCTIONS = """
-Role
-- You are the final responder for the user.
+ROUTING_INSTRUCTIONS = """
+Select exactly one participant to answer the latest user request.
 
-When selected for a greeting or general question
-- If selected for a greeting or general question, reply directly and list available services:
-    Billing, Identity & Access (IAM), Tickets, and Knowledge Base.
+Participants:
+- orchestrator: greetings, general questions, what this agent can do, and requests that do not
+    belong to a specialist domain
+- billing_specialist: invoicing, payments, account balance, billing history, refunds
+- iam_specialist: password reset/change, user accounts, roles, permissions
+- ticket_specialist: create/manage GitHub issues as support tickets
+- knowledge_specialist: product documentation, knowledge base queries
 
-When selected after a specialist
-- If selected after a specialist response, provide a clear final answer using the specialist data.
-
-Output format
-- Respond in Markdown.
-- Start with a short summary of the result.
-- Then include the most relevant details in readable bullets or a compact table when there are
-    multiple records, statuses, roles, invoices, issues, or permissions.
-- Preserve important values exactly: IDs, amounts, dates, statuses, roles, permissions,
-    repository names, and issue numbers or URLs.
-- If a tool reports an error or missing data, make that visible under a clear heading such as
-    `Result` or `Details`.
-- Do not over-compress the answer. It is acceptable to include context and explanation when it
-    makes the result easier to understand.
-
-Response rules
-- Always respond in the same language as the user.
-- Do not ask follow-up questions and do not suggest next steps.
+Rules:
+- Return orchestrator for greetings, general capability questions, and anything outside the
+    specialist domains.
+- Return one specialist for domain requests.
+- Do not choose multiple participants.
 """
+
+
+def parse_routing_decision(agent_response) -> RoutingDecision:
+        if getattr(agent_response, "value", None) is not None:
+                return RoutingDecision.model_validate(agent_response.value)
+
+        text = agent_response.text.strip()
+        try:
+                return RoutingDecision.model_validate_json(text)
+        except ValueError:
+                start = text.find("{")
+                end = text.rfind("}")
+                if start >= 0 and end > start:
+                        return RoutingDecision.model_validate(json.loads(text[start : end + 1]))
+                raise
+
+
+async def route_next_speaker(orchestrator_agent: Agent, state: GroupChatState) -> str:
+        agent_response = await orchestrator_agent.run(
+            messages=[*state.conversation, Message(role="user", contents=[ROUTING_INSTRUCTIONS])],
+                options={"response_format": RoutingDecision},
+        )
+        return parse_routing_decision(agent_response).next_speaker
 
 async def main() -> None:
     load_dotenv()
 
+    project_endpoint = os.environ["FOUNDRY_PROJECT_ENDPOINT"]
     credential = DefaultAzureCredential()
     client = FoundryChatClient(
-        project_endpoint=os.environ["FOUNDRY_PROJECT_ENDPOINT"],
+        project_endpoint=project_endpoint,
         model=os.environ["AZURE_AI_MODEL_DEPLOYMENT_NAME"],
         credential=credential,
     )
@@ -111,30 +147,52 @@ async def main() -> None:
         client=client,
     )
 
-    coordinator_agent = Agent(
-        name="coordinator",
-        description="Delivers the final response to the user",
-        instructions=COORDINATOR_INSTRUCTIONS,
-        client=client,
+    billing_agent = create_foundry_specialist(
+        project_endpoint=project_endpoint,
+        credential=credential,
+        agent_name=os.environ.get("BILLING_AGENT_NAME", "BillingAgent"),
+        agent_version=os.environ.get("BILLING_AGENT_VERSION", "3"),
+    )
+    iam_agent = create_foundry_specialist(
+        project_endpoint=project_endpoint,
+        credential=credential,
+        agent_name=os.environ.get("IAM_AGENT_NAME", "IAMAgent"),
+        agent_version=os.environ.get("IAM_AGENT_VERSION", "4"),
+    )
+    ticket_agent = create_foundry_specialist(
+        project_endpoint=project_endpoint,
+        credential=credential,
+        agent_name=os.environ.get("TICKETING_AGENT_NAME", "TicketingAgent"),
+        agent_version=os.environ.get("TICKETING_AGENT_VERSION", "3"),
+    )
+    knowledge_agent = create_foundry_specialist(
+        project_endpoint=project_endpoint,
+        credential=credential,
+        agent_name=os.environ.get("KNOWLEDGE_BASE_AGENT_NAME", "KnowledgeBaseAgent"),
+        agent_version=os.environ.get("KNOWLEDGE_BASE_AGENT_VERSION", "3"),
     )
 
-    billing_agent = create_billing_agent(client)
-    iam_agent = create_iam_agent(client)
-    ticket_agent = create_ticket_agent(client)
-    knowledge_agent = create_knowledge_agent(client, credential)
-
     participants = [
-        TracedAgentExecutor(billing_agent, id=billing_agent.name, context_mode="full"),
-        TracedAgentExecutor(iam_agent, id=iam_agent.name, context_mode="full"),
-        TracedAgentExecutor(ticket_agent, id=ticket_agent.name, context_mode="full"),
-        TracedAgentExecutor(knowledge_agent, id=knowledge_agent.name, context_mode="full"),
-        TracedAgentExecutor(coordinator_agent, id=coordinator_agent.name, context_mode="full"),
+        AgentExecutor(orchestrator_agent, id="orchestrator", context_mode="full"),
+        AgentExecutor(billing_agent, id="billing_specialist", context_mode="full"),
+        AgentExecutor(iam_agent, id="iam_specialist", context_mode="full"),
+        AgentExecutor(ticket_agent, id="ticket_specialist", context_mode="full"),
+        AgentExecutor(knowledge_agent, id="knowledge_specialist", context_mode="full"),
     ]
+
+    orchestrator = SingleTurnGroupChatOrchestrator(
+        id="group_chat_orchestrator",
+        participant_registry=ParticipantRegistry(participants),
+        selection_func=lambda state: route_next_speaker(orchestrator_agent, state),
+        name="orchestrator",
+        max_rounds=1,
+    )
 
     workflow = (
         GroupChatBuilder(
             participants=participants,
-            orchestrator_agent=orchestrator_agent,
+            orchestrator=orchestrator,
+            output_from="all",
         )
         .build()
     )
