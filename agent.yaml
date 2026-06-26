@@ -9,14 +9,6 @@ resources:
 environment_variables:
   - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
     value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
-  - name: BILLING_AGENT_VERSION
-    value: ${BILLING_AGENT_VERSION}
-  - name: IAM_AGENT_VERSION
-    value: ${IAM_AGENT_VERSION}
-  - name: TICKETING_AGENT_VERSION
-    value: ${TICKETING_AGENT_VERSION}
-  - name: KNOWLEDGE_BASE_AGENT_VERSION
-    value: ${KNOWLEDGE_BASE_AGENT_VERSION}
   - name: ENABLE_SENSITIVE_DATA
     value: true
 dockerfile_path: Dockerfile

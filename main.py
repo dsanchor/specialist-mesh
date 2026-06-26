@@ -150,26 +150,26 @@ async def main() -> None:
     billing_agent = create_foundry_specialist(
         project_endpoint=project_endpoint,
         credential=credential,
-        agent_name=os.environ.get("BILLING_AGENT_NAME", "BillingAgent"),
-        agent_version=os.environ.get("BILLING_AGENT_VERSION", "3"),
+        agent_name="BillingAgent",
+        agent_version="3",
     )
     iam_agent = create_foundry_specialist(
         project_endpoint=project_endpoint,
         credential=credential,
-        agent_name=os.environ.get("IAM_AGENT_NAME", "IAMAgent"),
-        agent_version=os.environ.get("IAM_AGENT_VERSION", "4"),
+        agent_name="IAMAgent",
+        agent_version="4",
     )
     ticket_agent = create_foundry_specialist(
         project_endpoint=project_endpoint,
         credential=credential,
-        agent_name=os.environ.get("TICKETING_AGENT_NAME", "TicketingAgent"),
-        agent_version=os.environ.get("TICKETING_AGENT_VERSION", "3"),
+        agent_name="TicketingAgent",
+        agent_version="3",
     )
     knowledge_agent = create_foundry_specialist(
         project_endpoint=project_endpoint,
         credential=credential,
-        agent_name=os.environ.get("KNOWLEDGE_BASE_AGENT_NAME", "KnowledgeBaseAgent"),
-        agent_version=os.environ.get("KNOWLEDGE_BASE_AGENT_VERSION", "3"),
+        agent_name="KnowledgeBaseAgent",
+        agent_version="3",
     )
 
     participants = [
